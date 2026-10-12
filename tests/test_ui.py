@@ -187,6 +187,24 @@ def test_chart_options_has_a_lane_for_each_detector(charge_w: float) -> None:
     assert [line['name'] for line in options['series'][0]['markLine']['data']] == ['Baseline 500 W']
 
 
+def test_chart_options_of_a_narrow_screen(charge_w: float) -> None:
+    result = make_pump_result(charge_w)
+    wide, narrow = chart_options(result, DATE_FORMAT), chart_options(result, DATE_FORMAT, narrow=True)
+    # The margins are small, so the line has the width of the screen.
+    assert [(grid['left'], grid['right']) for grid in wide['grid']] == [(124, 170)] * 2
+    assert [(grid['left'], grid['right']) for grid in narrow['grid']] == [(40, 20)] * 2
+    # A lane has two rows: its texts, then its bars. The texts are in the lane.
+    assert narrow['yAxis'][1]['data'] == ['', 'ev', '', 'well_pump']
+    assert narrow['yAxis'][2]['data'] == ['1 event  11.04 kWh', '', '1 event  0.02 kWh', '']
+    labels = json.dumps(['{c0|●} ev', '', '{c1|●} well_pump', ''])
+    assert f'{labels}[index]' in narrow['yAxis'][1]['axisLabel'][':formatter']
+    assert [axis['axisLabel']['inside'] for axis in narrow['yAxis'][1:]] == [True, True]
+    assert [axis['axisLabel']['inside'] for axis in wide['yAxis'][1:]] == [False, False]
+    assert (narrow['grid'][1]['height'], chart_height(result, narrow=True)) == (4 * 22, 384 + 4 * 22)
+    # The bars of a lane are the same.
+    assert lane(narrow, 'well_pump') == lane(wide, 'well_pump')
+
+
 def test_chart_options_has_no_lane_for_a_detector_without_events(charge_w: float) -> None:
     result = make_pump_result(charge_w)
     result = replace(result, found={**result.found, 'ev': []})
@@ -262,7 +280,8 @@ def test_name_of_a_detector(charge_w: float) -> None:
     # The lane keeps the name of the detector in the file. Its label shows ``name``.
     options = chart_options(result, DATE_FORMAT)
     assert options['yAxis'][1]['data'] == ['ev', 'well_pump']
-    assert '["ev", "Well pump"][index]' in options['yAxis'][1]['axisLabel'][':formatter']
+    labels = json.dumps(['ev {c0|●}', 'Well pump {c1|●}'])
+    assert f'{labels}[index]' in options['yAxis'][1]['axisLabel'][':formatter']
     assert [(row['key'], row['detector']) for row in event_rows(result, DATE_FORMAT)] == [
         ('ev', 'ev'),
         ('well_pump', 'Well pump'),

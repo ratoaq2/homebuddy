@@ -66,6 +66,8 @@ Below the chart is one lane for each detector of the tab that has events in the 
 - At the left of a lane is the name of the detector and its color. A detector has the same color in each
   chart. The color comes from the position of the detector in the file.
 - At the right is the number of its events, and their energy in a power tab.
+- On a narrow screen, for example a phone, the chart has the full width of the screen. The name and the
+  numbers of a detector are then in its lane, above its bars.
 
 ## The events table
 

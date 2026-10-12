@@ -16,16 +16,21 @@ from homebuddy.ui.names import detector_name, tab_name
 from homebuddy.ui.theme import CHART_COLORS
 
 
-def show_card(result: SearchResult, settings: Settings, day: date, dark: bool) -> tuple[ui.echart, ui.element]:
-    """Render the chart and the empty details of a sensor into the current container."""
+def show_card(
+    result: SearchResult, settings: Settings, day: date, dark: bool, narrow: bool = False
+) -> tuple[ui.echart, ui.element]:
+    """Render the chart and the empty details of a sensor into the current container.
+
+    ``narrow`` gives the chart its layout for a narrow screen.
+    """
     with ui.card().classes('hb-card w-full gap-0'):
         with ui.row().classes('w-full items-baseline gap-3'):
             ui.label(tab_name(result)).classes('font-semibold')
             ui.label(f'{day:%A}, {day.day} {day:%B %Y}').classes('hb-muted text-sm')
             ui.space()
             full_day_button = ui.button('Full day', color=None).props('flat dense no-caps').classes('hb-pill')
-        options = chart_options(result, settings.date_format, dark, line_windows(result, settings))
-        chart = ui.echart(options).classes('w-full').style(f'height: {chart_height(result)}px')
+        options = chart_options(result, settings.date_format, dark, line_windows(result, settings), narrow)
+        chart = ui.echart(options).classes('w-full').style(f'height: {chart_height(result, narrow)}px')
     full_day_button.on_click(lambda: chart.run_chart_method('dispatchAction', FULL_DAY_ZOOM))
     return chart, ui.column().classes('w-full gap-4')
 

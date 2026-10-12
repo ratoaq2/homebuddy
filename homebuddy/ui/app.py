@@ -20,14 +20,19 @@ from homebuddy.result import SearchResult
 from homebuddy.ui.card import show_card, show_details
 from homebuddy.ui.chart import chart_height, chart_options, line_windows
 from homebuddy.ui.names import tab_name
-from homebuddy.ui.theme import PAGE_CSS, PRIMARY
+from homebuddy.ui.theme import NARROW, PAGE_CSS, PRIMARY
 
 STATIC = Path(__file__).parent / 'static'
 REFRESH_SECONDS = 60
 DATE_STYLE = "{weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC'}"
-SYSTEM_DARK_JS = """
-const query = matchMedia('(prefers-color-scheme: dark)');
-const send = () => emitEvent('system_dark', query.matches);
+SYSTEM_DARK = '(prefers-color-scheme: dark)'
+
+
+def media_js(query: str, event: str) -> str:
+    """JavaScript: the browser sends if it matches a media query, now and at each change."""
+    return f"""
+const query = matchMedia({json.dumps(query)});
+const send = () => emitEvent({json.dumps(event)}, query.matches);
 query.addEventListener('change', send);
 send();
 """
@@ -75,29 +80,34 @@ def root(config_path: str | None = None) -> None:
         ui.label('homebuddy').classes('text-lg font-semibold')
         ui.label('Detectors').classes('hb-muted text-sm ml-2')
         ui.space()
-        prev_button = (
-            ui.button(icon='chevron_left', color=None).props('flat round dense').mark('prev').tooltip('Previous day')
-        )
-        # The button shows the day in words. A click opens the calendar.
-        with ui.button(icon='event', color=None).props('flat dense no-caps').classes('hb-pill') as date_button:
-            with ui.menu() as date_menu:
-                date_picker = ui.date(value=today(tz_name).isoformat(), on_change=date_menu.close)
+        # The buttons of the day. On a narrow screen, they are a second row of the header.
+        with ui.row().classes('hb-days items-center gap-1 no-wrap'):
+            prev_button = (
+                ui.button(icon='chevron_left', color=None)
+                .props('flat round dense')
+                .mark('prev')
+                .tooltip('Previous day')
+            )
+            # The button shows the day in words. A click opens the calendar.
+            with ui.button(icon='event', color=None).props('flat dense no-caps').classes('hb-pill') as date_button:
+                with ui.menu() as date_menu:
+                    date_picker = ui.date(value=today(tz_name).isoformat(), on_change=date_menu.close)
 
-        def show_date() -> None:
-            # The browser writes the day in the format of its language.
-            day = f'new Date({json.dumps(date_picker.value)}).toLocaleDateString(undefined, {DATE_STYLE})'
-            date_button.props(remove='label')
-            date_button.props[':label'] = day if date_picker.value else 'null'
+            def show_date() -> None:
+                # The browser writes the day in the format of its language.
+                day = f'new Date({json.dumps(date_picker.value)}).toLocaleDateString(undefined, {DATE_STYLE})'
+                date_button.props(remove='label')
+                date_button.props[':label'] = day if date_picker.value else 'null'
 
-        date_picker.on_value_change(show_date)
-        show_date()
-        next_button = (
-            ui.button(icon='chevron_right', color=None).props('flat round dense').mark('next').tooltip('Next day')
-        )
-        today_button = ui.button('Today', color=None).props('flat dense no-caps').classes('hb-pill')
-        reload_button = (
-            ui.button(icon='refresh', color=None).props('flat round dense').mark('reload').tooltip('Load again')
-        )
+            date_picker.on_value_change(show_date)
+            show_date()
+            next_button = (
+                ui.button(icon='chevron_right', color=None).props('flat round dense').mark('next').tooltip('Next day')
+            )
+            today_button = ui.button('Today', color=None).props('flat dense no-caps').classes('hb-pill')
+            reload_button = (
+                ui.button(icon='refresh', color=None).props('flat round dense').mark('reload').tooltip('Load again')
+            )
         ui.space()
         settings_button = ui.button(icon='tune', color=None).props('flat round dense').tooltip('Settings')
         with settings_button, ui.menu(), ui.column().classes('p-4 gap-2 w-72'):
@@ -126,6 +136,8 @@ def root(config_path: str | None = None) -> None:
     # The day that the page opened on, until the first load knows the time zone. It is the day of the computer
     # for a file without ``timezone``.
     opening: str | None = today(tz_name).isoformat()
+    # The browser sends if its screen is narrow, now and at each change. The chart gets its layout from it.
+    narrow = False
 
     def update_chart(target: ui.echart, result: SearchResult) -> None:
         if loaded is None:
@@ -133,8 +145,8 @@ def root(config_path: str | None = None) -> None:
         # Update the chart in place, so the zoom stays. The number of lanes can change.
         target.options.clear()
         windows = line_windows(result, loaded)
-        target.options.update(chart_options(result, loaded.date_format, bool(dark.value), windows))
-        target.style(f'height: {chart_height(result)}px')
+        target.options.update(chart_options(result, loaded.date_format, bool(dark.value), windows, narrow))
+        target.style(f'height: {chart_height(result, narrow)}px')
         target.update()
 
     def selected() -> SearchResult | None:
@@ -152,7 +164,7 @@ def root(config_path: str | None = None) -> None:
         else:
             results.clear()
             with results:
-                card = show_card(result, loaded, shown_day, bool(dark.value))
+                card = show_card(result, loaded, shown_day, bool(dark.value), narrow)
         chart, details = card
         tab = loaded.tabs.get(result.tab)
         details.clear()
@@ -168,6 +180,15 @@ def root(config_path: str | None = None) -> None:
     def set_dark(value: bool) -> None:
         dark.value = value
         theme_button.props(f'icon={"light_mode" if value else "dark_mode"}')
+        draw_chart()
+
+    def set_narrow(value: bool) -> None:
+        nonlocal narrow
+        narrow = value
+        draw_chart()
+
+    def draw_chart() -> None:
+        """Update the chart of the selected tab, when the page has one."""
         result = selected()
         if card and result:
             update_chart(card[0], result)
@@ -277,10 +298,12 @@ def root(config_path: str | None = None) -> None:
     debug_input.on_value_change(load)
     refresh_timer = ui.timer(REFRESH_SECONDS, load, active=False).mark('refresh')
     ui.timer(0, load, once=True)
+    ui.on('narrow', lambda e: set_narrow(bool(e.args)))
+    ui.timer(0, lambda: ui.run_javascript(media_js(NARROW, 'narrow')), once=True)
     if dark.value is None:
         # The browser sends the theme of the computer, now and at each change. The chart gets its colors from it.
         ui.on('system_dark', lambda e: set_dark(bool(e.args)))
-        ui.timer(0, lambda: ui.run_javascript(SYSTEM_DARK_JS), once=True)
+        ui.timer(0, lambda: ui.run_javascript(media_js(SYSTEM_DARK, 'system_dark')), once=True)
 
 
 def run(host: str, port: int, native: bool, show: bool, config_path: str | None = None) -> None:

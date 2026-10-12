@@ -6,6 +6,8 @@ from typing import Any
 
 PRIMARY = '#2a78d6'
 FONT = 'system-ui, -apple-system, "Segoe UI", sans-serif'
+# The media query of a narrow screen, for example a phone. The CSS and the chart use it.
+NARROW = '(max-width: 599px)'
 # The ECharts element does not follow the dark mode of the page, so the chart gets its colors here.
 # Keep them equal to the CSS variables in PAGE_CSS. False is the light theme, True is the dark theme.
 CHART_COLORS: dict[bool, dict[str, Any]] = {
@@ -102,6 +104,16 @@ body {
 .hb-filter-dot { width: 8px; height: 8px; border-radius: 50%; }
 .hb-filter-off { opacity: 0.45; }
 .hb-filter-off .hb-filter-name { text-decoration: line-through; }
+"""
+# On a narrow screen, the buttons of the day are a second row of the header. The chart gets the space of the
+# margins.
+PAGE_CSS += f"""
+@media {NARROW} {{
+    .hb-header {{ padding: 4px 8px !important; }}
+    .hb-days {{ order: 1; width: 100%; justify-content: center; }}
+    .nicegui-content {{ padding: 8px !important; }}
+    .hb-card {{ padding: 12px 8px !important; }}
+}}
 """
 # The color of the detector at each position, as CSS variables, so an element follows the theme of the page.
 for _dark, _selector in ((False, ':root'), (True, 'body.body--dark')):

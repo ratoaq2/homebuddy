@@ -28,6 +28,9 @@ LANE_HEIGHT = 22
 LANES_BOTTOM = 48
 LEFT = 124
 RIGHT = 170
+# On a narrow screen, the margins have only the numbers of the axis. The texts of a lane are in the lane.
+NARROW_LEFT = 40
+NARROW_RIGHT = 20
 
 
 def detector_colors(result: SearchResult, dark: bool = False) -> dict[str, str]:
@@ -64,9 +67,12 @@ def line_windows(result: SearchResult, settings: Settings) -> list[timedelta | N
     return [entry.smooth for entry in settings.tabs[result.tab].sensors] if result.tab in settings.tabs else []
 
 
-def chart_height(result: SearchResult) -> int:
-    """The height of the chart in pixels: the line of the sensor, then one lane for each detector with events."""
-    return LINE_HEIGHT + LANE_HEIGHT * len(lane_events(result))
+def chart_height(result: SearchResult, narrow: bool = False) -> int:
+    """The height of the chart in pixels: the line of the sensor, then one lane for each detector with events.
+
+    On a narrow screen, a lane has two rows.
+    """
+    return LINE_HEIGHT + LANE_HEIGHT * len(lane_events(result)) * (2 if narrow else 1)
 
 
 def smoothed(points: list[Point], window: timedelta) -> list[Point]:
@@ -93,7 +99,11 @@ def smoothed(points: list[Point], window: timedelta) -> list[Point]:
 
 
 def chart_options(
-    result: SearchResult, date_format: str, dark: bool = False, smooth: Sequence[timedelta | None] = ()
+    result: SearchResult,
+    date_format: str,
+    dark: bool = False,
+    smooth: Sequence[timedelta | None] = (),
+    narrow: bool = False,
 ) -> dict[str, Any]:
     """ECharts options: the line of the sensor for the day with its levels, and one lane for each detector with events.
 
@@ -104,6 +114,8 @@ def chart_options(
     Each other sensor of the tab is one more line, with the same axis. The chart then has a legend.
     ``smooth`` has the window of each line of the tab, in the order of its sensors. A line with a window
     shows the average of its sensor in each window. None, or no entry, is each value of the sensor.
+    ``narrow`` is for the screen of a phone. The margins are small, so the line has the width of the screen.
+    A lane then has two rows: the name of the detector and its numbers, then the bars.
     """
     tz = result.tz
     colors = CHART_COLORS[dark]
@@ -167,13 +179,27 @@ def chart_options(
     ]
     color_of = detector_colors(result, dark)
     events = lane_events(result)
-    lanes_height = LANE_HEIGHT * len(events)
+    left, right = (NARROW_LEFT, NARROW_RIGHT) if narrow else (LEFT, RIGHT)
+    # On a narrow screen, each lane has an empty row above its bars for its texts.
+    blank = [''] if narrow else []
+    rows = [row for name in events for row in (*blank, name)]
+    lanes_height = LANE_HEIGHT * len(rows)
+    # The legend has one row for each line on a narrow screen, so the line of the sensor starts below it.
+    top = 36 + 24 * len(more) if narrow else 36
+
+    def spread(texts: list[str]) -> list[str]:
+        """The texts of the lanes for the rows of the lanes: a text is in the first row of its lane."""
+        return [row for text in texts for row in (text, *blank)]
+
     energy = result.energy_kwh
     numbers = [
         f'{len(found)} event{"" if len(found) == 1 else "s"}' + (f'  {energy[name]:.2f} kWh' if name in energy else '')
         for name, found in events.items()
     ]
+    # The friendly name of the detector and a dot in its color. The dot is at the side of the bars, or it is
+    # first in the row of the texts.
     names = [detector_name(result, name) for name in events]
+    labels = [f'{{c{i}|●}} {name}' if narrow else f'{name} {{c{i}|●}}' for i, name in enumerate(names)]
     tooltips = event_tooltips(result, date_format)
     lane_axis = {
         'type': 'category',
@@ -229,6 +255,8 @@ def chart_options(
         'textStyle': {'color': colors['secondary'], 'fontFamily': FONT},
         'tooltip': {
             'trigger': 'axis',
+            # A tooltip stays in the chart, so a narrow screen shows all of it.
+            'confine': True,
             # This tooltip is for the line of the sensor. A value of a lane is not a number.
             ':valueFormatter': 'value => typeof value === "number" '
             f'? value.toFixed({decimals}) + {json.dumps(" " + unit)} : ""',
@@ -239,8 +267,8 @@ def chart_options(
         },
         # The two grids have the same left and right limits, so a time is at the same place in the two.
         'grid': [
-            {'left': LEFT, 'right': RIGHT, 'top': 36, 'bottom': LANES_BOTTOM + lanes_height + 32},
-            {'left': LEFT, 'right': RIGHT, 'height': lanes_height, 'bottom': LANES_BOTTOM},
+            {'left': left, 'right': right, 'top': top, 'bottom': LANES_BOTTOM + lanes_height + 32},
+            {'left': left, 'right': right, 'height': lanes_height, 'bottom': LANES_BOTTOM},
         ],
         'xAxis': [
             {**time_axis, 'axisLabel': {'color': muted, 'formatter': '{HH}:{mm}', 'hideOverlap': True}},
@@ -257,21 +285,28 @@ def chart_options(
             },
             {
                 **lane_axis,
-                'data': list(events),
+                'data': rows,
                 'axisLabel': {
                     'color': colors['ink'],
                     'fontSize': 12,
-                    # The friendly name of the detector, then a dot in its color
-                    ':formatter': f'(value, index) => {json.dumps(names)}[index] + " {{c" + index + "|\u25cf}}"',
+                    'inside': narrow,
+                    'interval': 0,
+                    ':formatter': f'(value, index) => {json.dumps(spread(labels))}[index]',
                     'rich': {f'c{i}': {'color': color_of[name], 'fontSize': 14} for i, name in enumerate(events)},
                 },
-                'splitLine': {'show': True, 'lineStyle': {'color': colors['grid']}},
+                # One line between two lanes, not between the two rows of a lane
+                'splitLine': {
+                    'show': True,
+                    'showMinLine': not narrow,
+                    ':interval': f'index => index % {len(blank) + 1} === {len(blank)}',
+                    'lineStyle': {'color': colors['grid']},
+                },
             },
             {
                 **lane_axis,
                 'position': 'right',
-                'data': numbers,
-                'axisLabel': {'color': colors['secondary'], 'fontSize': 12},
+                'data': spread(numbers),
+                'axisLabel': {'color': colors['secondary'], 'fontSize': 12, 'inside': narrow, 'interval': 0},
             },
         ],
         'dataZoom': [
@@ -313,7 +348,9 @@ def chart_options(
             'show': bool(more),
             'data': [main_name, *(other['name'] for other in more_lines)],
             'top': 4,
-            'right': RIGHT,
+            'right': right,
+            # On a narrow screen, the names of the lines do not fit in one row.
+            'orient': 'vertical' if narrow else 'horizontal',
             'icon': 'roundRect',
             'itemWidth': 14,
             'itemHeight': 3,
