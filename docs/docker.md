@@ -1,14 +1,14 @@
 # Docker
 
-## Build and run the image
+## Run the image
 
 ```bash
-git clone https://github.com/ratoaq2/homebuddy.git
-cd homebuddy
-docker build -t homebuddy .
 docker run --rm -p 8080:8080 --env-file .env \
-    -v ./homebuddy.yml:/home/homebuddy/homebuddy.yml:ro homebuddy
+    -v ./homebuddy.yml:/home/homebuddy/homebuddy.yml:ro ghcr.io/ratoaq2/homebuddy
 ```
+
+Each release has an image for `linux/amd64` and for `linux/arm64`. The tag `latest` is the last release. A tag
+with a version, for example `ghcr.io/ratoaq2/homebuddy:0.1.0`, is one release.
 
 The image starts the page on port 8080. The image does not contain the `.env` file or the configuration file.
 
@@ -25,7 +25,7 @@ your network can open the page. Use this command only on a network you trust.
 ```yaml
 services:
   homebuddy:
-    build: .
+    image: ghcr.io/ratoaq2/homebuddy
     restart: unless-stopped
     ports:
       - "127.0.0.1:8080:8080"
@@ -41,7 +41,7 @@ homebuddy:
 
 ```bash
 docker run --rm -p 127.0.0.1:8080:8080 --env-file .env \
-    -v ./homebuddy.yml:/home/homebuddy/homebuddy.yml:ro homebuddy
+    -v ./homebuddy.yml:/home/homebuddy/homebuddy.yml:ro ghcr.io/ratoaq2/homebuddy
 ```
 
 Then put a reverse proxy with a login on the same computer. This example is a `Caddyfile` for

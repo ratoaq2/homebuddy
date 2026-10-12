@@ -99,11 +99,8 @@ homebuddy must run on a computer that can connect to Home Assistant.
 ### Docker
 
 ```bash
-git clone https://github.com/ratoaq2/homebuddy.git
-cd homebuddy
-docker build -t homebuddy .
 docker run --rm -p 127.0.0.1:8080:8080 --env-file .env \
-    -v ./homebuddy.yml:/home/homebuddy/homebuddy.yml:ro homebuddy
+    -v ./homebuddy.yml:/home/homebuddy/homebuddy.yml:ro ghcr.io/ratoaq2/homebuddy
 ```
 
 See [docs/docker.md](docs/docker.md) for Docker Compose and for a reverse proxy with a login and HTTPS.
