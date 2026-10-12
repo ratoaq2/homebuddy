@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 660 160" width="660" height="160">
+  <title>homebuddy</title>
+  <svg viewBox="0 0 512 512" width="160" height="160">
+    <rect width="512" height="512" rx="112" fill="#2a78d6"/>
+    <g transform="translate(256 256) scale(0.92) translate(-256 -256)">
+      <path d="M256 112 L400 240 V392 H112 V240 Z" fill="#fff" stroke="#fff" stroke-width="28" stroke-linejoin="round"/>
+      <rect x="164" y="250" width="68" height="34" rx="17" fill="#2a78d6"/>
+      <rect x="280" y="250" width="68" height="34" rx="17" fill="#1baf7a"/>
+      <rect x="184" y="328" width="144" height="34" rx="17" fill="#eb6834"/>
+    </g>
+  </svg>
+  <text x="192" y="108" font-family="'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="84" font-weight="700" letter-spacing="-2" fill="#e6e5e0">home<tspan fill="#3987e5">buddy</tspan></text>
+</svg>

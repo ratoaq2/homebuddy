@@ -1,0 +1,101 @@
+# homebuddy configuration. Copy this file to homebuddy.yml and change the values.
+# The example is an invented house. Each key is in docs/configuration.md and docs/detectors.md.
+# home_assistant.url, one tab and one detector or more are necessary. Each other global key shows its default here.
+# The Home Assistant token is not in this file. Set HA_TOKEN in the environment or in .env.
+
+# Home Assistant. The address starts with http:// or https://. With http, the token goes over the network
+# as clear text. Use https when Home Assistant is not on the same trusted network.
+home_assistant:
+  url: http://homeassistant.local:8123
+# The time zone of your home. Without this key, homebuddy uses the time zone of Home Assistant.
+# timezone: Europe/Berlin
+
+# Output
+date_format: '%Y-%m-%d %H:%M:%S'    # Python strftime format
+theme: system                      # the theme of the page: light, dark or system (the theme of your computer)
+# The copy button of a row in the events table copies these columns, with a tab between them.
+# Without this key, it copies each column. The ids of the columns are detector, start, end, duration,
+# label, power and energy for a power tab, and start_value and peak for a different tab.
+# copy_columns: [start, end]
+
+# The tabs of the page, in this order. Each tab has an id and the sensor of its chart.
+# `name` is optional. Without it, the tab shows the name of the sensor in Home Assistant.
+# `detectors` is optional: the names of the detectors that the tab shows, in the order of the lanes.
+# Without it, the tab of a power sensor shows each detector, and a tab of a different sensor shows
+# the detectors that read its sensor. `detectors: []` gives a chart with no detector.
+# `hidden_detectors` is optional: the names of the detectors whose rows the events table does not
+# show when the page opens. The chart shows their lanes. A click on the filter of a detector shows its rows.
+tabs:
+  power:
+    # name: Power
+    # Each sensor is a line of the chart. The first one is the sensor of the tab. Each other one must
+    # have its class and its unit, for example: [sensor.grid_power, sensor.solar_power]
+    # An entry can be a map. `smooth` is a duration: the line shows the average of the sensor in each
+    # window of this time, for example: [sensor.grid_power, {sensor: sensor.solar_power, smooth: {minutes: 5}}]
+    sensors: [sensor.grid_power]
+    # hidden_detectors: [heater]
+  # discharge:
+  #   sensors: [sensor.discharge_temperature]
+  #   detectors: [air_conditioner]
+
+# Each detector has a name and a type. `type` is necessary.
+# A duration is a number of seconds (30), a text ('00:05:00'), or a map ({hours: 1, minutes: 30}).
+# `name` is optional. The page shows it in place of the name of the detector.
+# `overrides` is optional: a list of detector names. When this detector and one of them find the
+# same event, homebuddy keeps the event of this detector and removes the other one.
+# `sensor` is the sensor that the detector reads. A tab shows the chart of a sensor, not the detector.
+detectors:
+  # A device that uses a known, constant power for a long time.
+  # The example is a car at a charger with 3 phases at 230 V. The levels are the power of the charger
+  # at 6 A, 10 A and 16 A: phases x voltage x current. `sensor` and `levels_w` are necessary.
+  # Each other key shows its default. Remove this detector if you have no such device.
+  car:
+    type: level
+    # name: Car
+    sensor: sensor.grid_power       # the power sensor, in W or kW
+    levels_w: [4140, 6900, 11040]   # each power that the device can use, in watts
+    tolerance: 0.1                  # 0.1 accepts a run 10 % below the lowest level
+    min_duration: {minutes: 10}     # homebuddy ignores a shorter run
+
+  # A load that runs for some seconds: a short step up and a step down of the power.
+  # The example is a well pump. A pulse detector has no defaults.
+  # Remove the comment signs and set the values of your load.
+  # well_pump:
+  #   type: pulse
+  #   sensor: sensor.grid_power     # the power sensor, in W or kW
+  #   step_w: [900, 1100]           # the step up or the step down, in watts
+  #   duration: [30, 90]            # the duration of a run, in seconds
+  #   max_ripple_w: 50              # the power in the run stays within this value
+  #   max_step_difference_w: 100    # optional: the step up and the step down are equal within this value
+  #   side_load_w: [200, 300]       # optional: a second load that can start or stop in the run
+  #   min_gap: {minutes: 5}         # optional: homebuddy refuses a pulse that has a second pulse in this time
+
+  # A device that makes a value rise fast when it starts and fall fast when it stops.
+  # The example is an air conditioner, from its discharge temperature.
+  # The tab of the power sensor also shows the runs.
+  # air_conditioner:
+  #   type: ramp
+  #   sensor: sensor.discharge_temperature
+  #   rise_per_minute: 5            # a faster rise starts a run
+  #   fall_per_minute: 4            # a faster fall ends a run
+  #   min_rise: 25                  # the minimum rise from the start to the peak
+  #   max_pause: {minutes: 5}       # optional: a new fast rise in this time continues the run
+  #   overrides: [car]              # optional: a run removes a run of the car of the same time
+
+  # A device that shows its state as a text, for example a washing machine.
+  # The device runs when the state is not in `idle_states`. A state detector has no defaults.
+  # homebuddy does not calculate the power or the energy of a run from the power sensor.
+  # The tab of the power sensor shows the runs.
+  # washing_machine:
+  #   type: state
+  #   sensor: sensor.washing_machine_state    # the sensor that shows the state of the device
+  #   idle_states: [idle]           # the states when the device does not run. Use quotes for 'off' and 'on'.
+  #   energy_sensor: sensor.washing_machine_energy    # optional: the energy of a run, in kWh or Wh
+
+  # A device that has its own power sensor, for example a heater on a smart plug.
+  # The device runs when the power of `sensor` is above `min_w`. A threshold detector has no defaults.
+  # The power and the energy of a run come from `sensor`. The tab of the power sensor shows the runs.
+  # heater:
+  #   type: threshold
+  #   sensor: sensor.heater_plug_power    # the power sensor of the device, in W or kW
+  #   min_w: 10                     # the device runs when the power is above this value

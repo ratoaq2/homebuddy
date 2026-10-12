@@ -1,0 +1,8 @@
+# Keep the image small, and keep the Home Assistant token out of it.
+*
+!homebuddy/
+!pyproject.toml
+!uv.lock
+!README.md
+!LICENSE
+**/__pycache__/

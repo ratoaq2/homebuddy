@@ -1,0 +1,2 @@
+# Secrets. AI tools must not read these files.
+.env
