@@ -9,7 +9,7 @@ import pytest
 
 from homebuddy import homeassistant
 from homebuddy.homeassistant import HomeAssistant
-from homebuddy.model import numbers
+from homebuddy.model import SensorError, numbers
 from tests.conftest import TZ, UTC
 
 
@@ -51,10 +51,11 @@ ANSWERS: dict[str, Any] = {
     '/api/history/period/2026-09-14T10:00:00+00:00': [],
     # A list without states, and a list of a sensor that the request does not have
     '/api/history/period/2026-09-15T10:00:00+00:00': [[], [{'entity_id': 'sensor.other', 'state': '1'}]],
-    '/api/states/sensor.air': STATE,
-    '/api/states/sensor.p': {'state': '1.5', 'attributes': {'unit_of_measurement': 'kW', 'device_class': 'power'}},
-    '/api/states/sensor.door': {'state': 'on'},
-    '/api/states/sensor.a%2Fb%3Fc': {'state': 'on'},
+    '/api/states': [
+        {'entity_id': 'sensor.air', **STATE},
+        {'entity_id': 'sensor.p', 'state': '1.5', 'attributes': {'unit_of_measurement': 'kW', 'device_class': 'power'}},
+        {'entity_id': 'sensor.door', 'state': 'on'},
+    ],
     '/api/config': {'time_zone': 'Europe/Berlin', 'version': '2026.10.0'},
 }
 
@@ -103,17 +104,21 @@ def test_unit_power_class_and_name_of_a_sensor(requests: list[Any]) -> None:
     # A sensor is a power sensor when Home Assistant gives it the class ``power``. A sensor can have no attributes.
     assert (client.unit('sensor.p'), client.is_power('sensor.p'), client.name('sensor.p')) == ('kW', True, '')
     assert (client.unit('sensor.door'), client.is_power('sensor.door'), client.name('sensor.door')) == ('', False, '')
-    # The client asks one time for each sensor.
-    assert [request.full_url for request in requests] == [
-        'http://ha:8123/api/states/sensor.air',
-        'http://ha:8123/api/states/sensor.p',
-        'http://ha:8123/api/states/sensor.door',
-    ]
+    # One request gets the attributes of all the sensors.
+    assert [request.full_url for request in requests] == ['http://ha:8123/api/states']
 
 
-def test_the_client_quotes_the_sensor_in_the_path(requests: list[Any]) -> None:
-    assert HomeAssistant('http://ha:8123', 'tok').unit('sensor.a/b?c') == ''
-    assert [request.full_url for request in requests] == ['http://ha:8123/api/states/sensor.a%2Fb%3Fc']
+def test_sensor_that_home_assistant_does_not_have(requests: list[Any]) -> None:
+    with pytest.raises(SensorError, match='sensor.gone: Home Assistant does not have this sensor'):
+        HomeAssistant('http://ha:8123', 'tok').unit('sensor.gone')
+
+
+def test_the_client_encodes_the_sensor_in_the_query(requests: list[Any]) -> None:
+    start = datetime(2026, 9, 14, 12, 0, tzinfo=TZ)
+    HomeAssistant('http://ha:8123', 'tok').history(['sensor.a/b?c&d'], start, start)
+    [request] = requests
+    assert request.full_url.startswith('http://ha:8123/api/history/period/2026-09-14T10:00:00+00:00?')
+    assert 'filter_entity_id=sensor.a%2Fb%3Fc%26d&' in request.full_url
 
 
 def test_timezone(requests: list[Any]) -> None:

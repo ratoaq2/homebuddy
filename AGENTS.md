@@ -154,8 +154,8 @@ Each module has one concern. The imports go in one direction:
   from the browser. A value in JavaScript source goes through `json.dumps`. A value in HTML goes through
   `html.escape`. No exception for a value that looks safe.
 - `home_assistant.url` has the field type `HttpUrl`: only `http://` and `https://`. A sensor has the field type
-  `Sensor`: an entity id with the form `domain.object_id`. The client quotes a sensor in the path of a
-  request.
+  `Sensor`: an entity id with the form `domain.object_id`. The client encodes a sensor in the query of a
+  request. No sensor is in the path of a request.
 - The token of Home Assistant is only in the `HA_TOKEN` environment variable and in the `HomeAssistant`
   client. It is not in `Settings`, not in a result, not in a log, and not in an argument of the command.
   Only the page gets the token from `config.ha_token()`, to make the client. `load_settings` calls it

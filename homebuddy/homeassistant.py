@@ -6,12 +6,12 @@ import json
 import time
 import urllib.parse
 import urllib.request
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from homebuddy.model import Reading
+from homebuddy.model import Reading, SensorError
 
 # The client asks again for the attributes of a sensor and for the time zone after this time.
 CACHE_SECONDS = 600
@@ -32,10 +32,11 @@ class HomeAssistant:
         with urllib.request.urlopen(req, timeout=30) as resp:
             return json.loads(resp.read().decode())
 
-    def _cached(self, path: str) -> Any:
+    def _cached(self, path: str, read: Callable[[Any], Any] = lambda answer: answer) -> Any:
+        """The answer of a path, from the cache. ``read`` changes the answer before the cache keeps it."""
         found = self._cache.get(path)
         if found is None or time.monotonic() - found[0] > CACHE_SECONDS:
-            found = self._cache[path] = (time.monotonic(), self._get(path))
+            found = self._cache[path] = (time.monotonic(), read(self._get(path)))
         return found[1]
 
     def history(self, sensors: Sequence[str], start: datetime, end: datetime) -> dict[str, list[Reading]]:
@@ -72,8 +73,13 @@ class HomeAssistant:
         return found
 
     def _attributes(self, sensor: str) -> dict[str, Any]:
-        state: dict[str, Any] = self._cached(f'/api/states/{urllib.parse.quote(sensor, safe="")}')
-        return dict(state.get('attributes', {}))
+        """The attributes of a sensor. One request gets the state of each entity of Home Assistant."""
+        states: dict[str, dict[str, Any]] = self._cached(
+            '/api/states', lambda answer: {state['entity_id']: state for state in answer}
+        )
+        if sensor not in states:
+            raise SensorError(f'{sensor}: Home Assistant does not have this sensor')
+        return dict(states[sensor].get('attributes', {}))
 
     def unit(self, sensor: str) -> str:
         """The unit of a sensor. It is empty for a sensor without a unit."""

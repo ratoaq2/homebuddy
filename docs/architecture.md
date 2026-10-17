@@ -186,9 +186,9 @@ client.
 Names, units and states come from Home Assistant, where a second person or an integration can set them. A
 value in JavaScript source goes through `json.dumps`. A value in HTML goes through `html.escape`. `home_assistant.url`
 accepts only `http://` and `https://`. A sensor is an entity id with the form `domain.object_id`, and the
-client quotes it in the path of a request.
+client encodes it in the query of a request.
 
 - One rule without an exception is easy to check in a review.
 - The configuration check gives a message with the path of the key. A wrong address or a wrong sensor does not
   get to the client.
-- The quote in the client is a second barrier, for a caller that the configuration did not check.
+- The encoding in the client is a second barrier, for a caller that the configuration did not check.
