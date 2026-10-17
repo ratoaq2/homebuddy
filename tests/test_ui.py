@@ -104,7 +104,8 @@ def test_chart_options(charge_w: float) -> None:
     # The line and the lanes have the same time axis.
     for axis in options['xAxis']:
         assert (axis['min'], axis['max']) == ('2026-09-13 00:00:00', '2026-09-14 00:00:00')
-    assert len([point for point in series['data'] if point[1] is not None]) == len(result.points)
+    # The last value continues until the end of the day.
+    assert len([point for point in series['data'] if point[1] is not None]) == len(result.points) + 1
     # A sensor without a name in Home Assistant shows its entity id.
     assert series['name'] == 'sensor.p'
     assert series['data'][1] == ['2026-09-13 13:00:00', 0.5]
@@ -135,11 +136,16 @@ def test_chart_options_line_has_the_limits_of_the_day(charge_w: float) -> None:
     # The mini graph of the zoom slider has the time range of the data of the line, not of the time axis.
     result = make_result(charge_w)
     data = chart_options(result, DATE_FORMAT)['series'][0]['data']
-    assert (data[0], data[-1]) == (['2026-09-13 00:00:00', None], ['2026-09-14 00:00:00', None])
-    # The line stops at its last point. It does not continue to the end of the day.
+    assert (data[0], data[-1]) == (['2026-09-13 00:00:00', None], ['2026-09-14 00:00:00', 0.0])
+    # The last value of a sensor continues until the end of the search. Home Assistant gives only the changes.
     assert data[len(result.points)] == ['2026-09-13 14:59:30', 0.0]
-    assert data[len(result.points) + 1] == ['2026-09-13 17:14:37', None]
-    assert all(value is None for _, value in data[len(result.points) + 1 :])
+    assert data[len(result.points) + 1] == ['2026-09-14 00:00:00', 0.0]
+    # Today, the line stops at the time of the search. It does not continue to the end of the day.
+    data = chart_options(replace(result, end=datetime(2026, 9, 13, 18, 0, tzinfo=TZ)), DATE_FORMAT)['series'][0]['data']
+    assert data[len(result.points) + 1] == ['2026-09-13 18:00:00', 0.0]
+    # A step goes to the next point, also without a value. So the next point is one second later.
+    assert data[len(result.points) + 2] == ['2026-09-13 18:00:01', None]
+    assert all(value is None for _, value in data[len(result.points) + 2 :])
     # A point before or after the day gives the value of the line at the limit.
     points = make_points(datetime(2026, 9, 12, 23, 0, tzinfo=TZ), [(26 * 120, 300)])
     data = chart_options(replace(result, points=points), DATE_FORMAT)['series'][0]['data']
