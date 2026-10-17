@@ -110,7 +110,7 @@ def test_chart_options(charge_w: float) -> None:
     assert [line['name'] for line in series['markLine']['data']] == ['Baseline 500 W']
     # One lane for each detector of the sensor. The first detector has the color of the line.
     assert options['yAxis'][1]['data'] == ['ev']
-    assert lane(options, 'ev') == ('#2a78d6', [('2026-09-13 13:50:00', '2026-09-13 14:50:00')])
+    assert lane(options, 'ev') == ('#03a9f4', [('2026-09-13 13:50:00', '2026-09-13 14:50:00')])
     assert chart_height(result) == 384 + 22
 
 
@@ -159,7 +159,7 @@ def test_chart_options_has_a_line_for_each_sensor_of_the_tab(charge_w: float) ->
     # Each line has the name of its sensor and its color. The lanes are after the lines.
     names = ['sensor.p', 'Solar', 'sensor.solar']
     assert [(s['name'], s['lineStyle']['color']) for s in options['series'][:3]] == list(
-        zip(names, ['#2a78d6', '#eda100', '#1baf7a'], strict=True)
+        zip(names, ['#03a9f4', '#eda100', '#1baf7a'], strict=True)
     )
     assert (options['legend']['show'], options['legend']['data']) == (True, names)
     assert options['series'][1]['data'][1] == ['2026-09-13 13:00:00', 1.5]
@@ -171,8 +171,10 @@ def test_chart_options_has_a_line_for_each_sensor_of_the_tab(charge_w: float) ->
 
 def test_chart_options_theme(charge_w: float) -> None:
     result = make_result(charge_w)
-    assert chart_options(result, DATE_FORMAT)['series'][0]['lineStyle']['color'] == '#2a78d6'
-    assert chart_options(result, DATE_FORMAT, dark=True)['series'][0]['lineStyle']['color'] == '#3987e5'
+    light, dark = chart_options(result, DATE_FORMAT), chart_options(result, DATE_FORMAT, dark=True)
+    # The line has the primary color of Home Assistant in the two themes. The tooltip has the color of the theme.
+    assert light['series'][0]['lineStyle']['color'] == dark['series'][0]['lineStyle']['color'] == '#03a9f4'
+    assert (light['tooltip']['backgroundColor'], dark['tooltip']['backgroundColor']) == ('#fcfcfb', '#1c1c1c')
 
 
 def make_pump_result(charge_w: float) -> SearchResult:
@@ -605,7 +607,7 @@ async def test_page_has_a_tab_for_each_result(
         await asyncio.sleep(0.2)
         assert user.find(ui.echart).elements == {chart}
         user.find(marker='theme').click()
-        assert chart.options['series'][0]['lineStyle']['color'] == '#3987e5'
+        assert chart.options['series'][0]['lineStyle']['color'] == '#03a9f4'
 
         # The selected sensor stays when the day changes.
         [date_input] = user.find(ui.date).elements
@@ -780,11 +782,11 @@ async def test_theme_switch(found: list[tuple[Any, ...]]) -> None:
         [dark] = user.find(ui.dark_mode).elements
         # Without ``theme`` in the configuration file, the page has the theme of the computer of the user.
         assert dark.value is None
-        assert chart.options['series'][0]['lineStyle']['color'] == '#2a78d6'
+        assert chart.options['series'][0]['lineStyle']['color'] == '#03a9f4'
 
         user.find(marker='theme').click()
         assert dark.value is True
-        assert chart.options['series'][0]['lineStyle']['color'] == '#3987e5'
+        assert chart.options['series'][0]['lineStyle']['color'] == '#03a9f4'
 
     assert len(found) == 1
 
@@ -797,7 +799,7 @@ async def test_theme_of_the_file(found: list[tuple[Any, ...]]) -> None:
         [chart] = user.find(ui.echart).elements
         [dark] = user.find(ui.dark_mode).elements
         assert dark.value is True
-        assert chart.options['series'][0]['lineStyle']['color'] == '#3987e5'
+        assert chart.options['series'][0]['lineStyle']['color'] == '#03a9f4'
 
         user.find(marker='theme').click()
         assert dark.value is False

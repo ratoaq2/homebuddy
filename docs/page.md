@@ -140,6 +140,9 @@ The page uses the theme of your computer. Set `theme` in the configuration file 
 one theme. The button at the top right changes the theme. The page does not keep this selection when you load
 it again.
 
+The page has the look of Home Assistant: the Roboto font, the primary color `#03a9f4` in the two themes, and
+the neutral grays of the dark theme of Home Assistant.
+
 ## Install the page on a phone
 
 On a phone, you can install the page as an app. The page must use HTTPS with a certificate that the phone

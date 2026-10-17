@@ -4,12 +4,15 @@ from __future__ import annotations
 
 from typing import Any
 
-PRIMARY = '#2a78d6'
-FONT = 'system-ui, -apple-system, "Segoe UI", sans-serif'
+# The primary color and the font of Home Assistant. The primary color is the same in the two themes. NiceGUI
+# serves Roboto.
+PRIMARY = '#03a9f4'
+FONT = 'Roboto, system-ui, sans-serif'
 # The media query of a narrow screen, for example a phone. The CSS and the chart use it.
 NARROW = '(max-width: 599px)'
 # The ECharts element does not follow the dark mode of the page, so the chart gets its colors here.
-# Keep them equal to the CSS variables in PAGE_CSS. False is the light theme, True is the dark theme.
+# The CSS variables of the surface, the ink and the secondary text come from here. False is the light theme, True is
+# the dark theme.
 CHART_COLORS: dict[bool, dict[str, Any]] = {
     False: {
         'series': PRIMARY,
@@ -26,34 +29,29 @@ CHART_COLORS: dict[bool, dict[str, Any]] = {
         'axis': '#c3c2b7',
     },
     True: {
-        'series': '#3987e5',
-        'detectors': ('#3987e5', '#d95926', '#199e70', '#c98500'),
+        'series': PRIMARY,
+        'detectors': (PRIMARY, '#d95926', '#199e70', '#c98500'),
         'lines': ('#c98500', '#199e70', '#d95926'),
-        'surface': '#1a1a19',
-        'ink': '#e6e5e0',
-        'secondary': '#c3c2b7',
-        'muted': '#898781',
-        'grid': '#2c2c2a',
-        'axis': '#383835',
+        # The neutral grays of the dark theme of Home Assistant
+        'surface': '#1c1c1c',
+        'ink': '#e1e1e1',
+        'secondary': '#9b9b9b',
+        'muted': '#9b9b9b',
+        'grid': '#2c2c2c',
+        'axis': '#383838',
     },
 }
 PAGE_CSS = """
 :root {
     --hb-plane: #f9f9f7;
-    --hb-surface: #fcfcfb;
-    --hb-ink: #0b0b0b;
     --hb-muted: #6f6d68;
-    --hb-secondary: #52514e;
     --hb-border: rgba(11, 11, 11, 0.10);
     --hb-control-border: rgba(11, 11, 11, 0.22);
     --hb-hover: rgba(11, 11, 11, 0.04);
 }
 body.body--dark {
-    --hb-plane: #0d0d0d;
-    --hb-surface: #1a1a19;
-    --hb-ink: #e6e5e0;
-    --hb-muted: #a3a29b;
-    --hb-secondary: #c3c2b7;
+    --hb-plane: #111111;
+    --hb-muted: #9b9b9b;
     --hb-border: rgba(255, 255, 255, 0.10);
     --hb-control-border: rgba(255, 255, 255, 0.22);
     --hb-hover: rgba(255, 255, 255, 0.05);
@@ -61,7 +59,6 @@ body.body--dark {
 body {
     background: var(--hb-plane) !important;
     color: var(--hb-ink) !important;
-    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 .hb-header {
     background: var(--hb-surface) !important;
@@ -136,7 +133,11 @@ PAGE_CSS += f"""
     .hb-card {{ padding: 12px 8px !important; }}
 }}
 """
-# The color of the detector at each position, as CSS variables, so an element follows the theme of the page.
+PAGE_CSS += f'body {{ font-family: {FONT}; }}\n'
+# The colors of the chart and the color of the detector at each position, as CSS variables, so an element follows
+# the theme of the page.
 for _dark, _selector in ((False, ':root'), (True, 'body.body--dark')):
-    _colors = ' '.join(f'--hb-detector-{i}: {color};' for i, color in enumerate(CHART_COLORS[_dark]['detectors']))
+    _theme = CHART_COLORS[_dark]
+    _colors = ' '.join(f'--hb-{name}: {_theme[name]};' for name in ('surface', 'ink', 'secondary'))
+    _colors += ' ' + ' '.join(f'--hb-detector-{i}: {color};' for i, color in enumerate(_theme['detectors']))
     PAGE_CSS += f'{_selector} {{ {_colors} }}\n'
