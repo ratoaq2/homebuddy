@@ -1,6 +1,6 @@
 [project]
 name = "homebuddy"
-version = "0.3.0"
+version = "0.3.1"
 description = "A companion for Home Assistant: finds device events in the sensor history"
 authors = [
     { name = "Rato" }
