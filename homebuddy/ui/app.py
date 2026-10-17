@@ -220,6 +220,18 @@ def root(config_path: str | None = None) -> None:
             for line in lines:
                 ui.label(line).classes('font-mono text-sm')
 
+    def show_error(error: Exception, day: date) -> None:
+        """Show the error of the search of a day."""
+        match error:
+            case search.NoDataError():
+                show_message(f'No data for {day:%A}, {day.day} {day:%B %Y}', [])
+            case SensorError():
+                show_message(str(error), [])
+            case urllib.error.HTTPError():
+                ui.notify(f'Home Assistant error: HTTP {error.code} {error.reason}', type='negative')
+            case _:
+                ui.notify(f'Cannot reach Home Assistant: {error}', type='negative')
+
     async def load() -> None:
         nonlocal card, shown_day, shown, tz_name, opening
         if loaded is None:
@@ -234,15 +246,20 @@ def root(config_path: str | None = None) -> None:
             ui.notify(str(e), type='negative')
             return
 
+        def selected_day() -> bool:
+            """True when the day of this load is still the selected day. Else a newer load shows the selected day."""
+            return bool(date_picker.value == day.isoformat())
+
         try:
             source = client(settings.home_assistant.url, config.ha_token())
             try:
                 # Without ``timezone`` in the file, the time zone comes from Home Assistant.
                 tz = await nicegui_run.io_bound(search.timezone, settings, source)
             except (ZoneInfoNotFoundError, ValueError) as e:
-                ui.notify(str(e), type='negative')
+                if selected_day():
+                    ui.notify(str(e), type='negative')
                 return
-            if tz is None:  # the app is shutting down
+            if tz is None or not selected_day():  # the app is shutting down, or a newer load
                 return
             tz_name = tz.key
             opened, opening = opening, None
@@ -254,19 +271,11 @@ def root(config_path: str | None = None) -> None:
             next_button.set_enabled(not is_today)
             refresh_timer.active = is_today
             found = await nicegui_run.io_bound(search.find_day, settings, source, day)
-        except search.NoDataError:
-            show_message(f'No data for {day:%A}, {day.day} {day:%B %Y}', [])
+        except (search.NoDataError, SensorError, OSError) as e:
+            if selected_day():
+                show_error(e, day)
             return
-        except SensorError as e:
-            show_message(str(e), [])
-            return
-        except urllib.error.HTTPError as e:
-            ui.notify(f'Home Assistant error: HTTP {e.code} {e.reason}', type='negative')
-            return
-        except (urllib.error.URLError, OSError) as e:
-            ui.notify(f'Cannot reach Home Assistant: {e}', type='negative')
-            return
-        if found is None:  # the app is shutting down
+        if found is None or not selected_day():  # the app is shutting down, or a newer load
             return
 
         names = {result.tab: tab_name(result) for result in found}
