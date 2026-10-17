@@ -148,6 +148,15 @@ def test_chart_options_line_has_the_limits_of_the_day(charge_w: float) -> None:
     assert len(data) == 24 * 120 + 2
 
 
+def test_chart_options_each_point_of_a_line_has_its_own_time(charge_w: float) -> None:
+    # The tooltip shows each point at the time of the mouse. Two points at one time give two rows.
+    # This line has a point at midnight, and it stops before the end of the day.
+    points = make_points(datetime(2026, 9, 13, tzinfo=TZ), [(1800, 300)])
+    data = chart_options(replace(make_result(charge_w), points=points), DATE_FORMAT)['series'][0]['data']
+    times = [time for time, _ in data]
+    assert len(times) == len(set(times))
+
+
 def test_chart_options_has_a_line_for_each_sensor_of_the_tab(charge_w: float) -> None:
     result = make_result(charge_w)
     # One line: the name of the tab, and no legend.
