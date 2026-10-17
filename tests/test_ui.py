@@ -137,15 +137,15 @@ def test_chart_options_line_has_the_limits_of_the_day(charge_w: float) -> None:
     data = chart_options(result, DATE_FORMAT)['series'][0]['data']
     assert (data[0], data[-1]) == (['2026-09-13 00:00:00', None], ['2026-09-14 00:00:00', None])
     # The line stops at its last point. It does not continue to the end of the day.
-    assert data[len(result.points) : len(result.points) + 2] == [
-        ['2026-09-13 14:59:30', 0.0],
-        ['2026-09-13 14:59:30', None],
-    ]
+    assert data[len(result.points)] == ['2026-09-13 14:59:30', 0.0]
+    assert data[len(result.points) + 1] == ['2026-09-13 17:14:37', None]
+    assert all(value is None for _, value in data[len(result.points) + 1 :])
     # A point before or after the day gives the value of the line at the limit.
     points = make_points(datetime(2026, 9, 12, 23, 0, tzinfo=TZ), [(26 * 120, 300)])
     data = chart_options(replace(result, points=points), DATE_FORMAT)['series'][0]['data']
     assert (data[0], data[-1]) == (['2026-09-13 00:00:00', 0.3], ['2026-09-14 00:00:00', 0.3])
-    assert len(data) == 24 * 120 + 2
+    # The line has a point at midnight, so the start of the day has no second point.
+    assert len(data) == 24 * 120 + 1
 
 
 def test_chart_options_each_point_of_a_line_has_its_own_time(charge_w: float) -> None:
