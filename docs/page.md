@@ -30,6 +30,10 @@ When the page shows today, it loads new data each 60 seconds. This load does not
 again. At midnight in the time zone of the home, the page goes to the new day, so a wall display always shows
 today. A day in the past that you select stays. "Load again" reads the file and loads the data.
 
+homebuddy keeps the history of the last 10 days in the past that it loaded, so a second visit of a day is fast.
+The history of a day includes 12 hours after midnight. Before noon, homebuddy does not keep the history of
+yesterday yet.
+
 An event that crosses midnight shows on the two days, with its real start and end.
 
 Home Assistant keeps the detailed history for about 10 days by default. An older day shows "No data".

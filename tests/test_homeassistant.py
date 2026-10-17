@@ -94,6 +94,43 @@ def test_history_without_states(requests: list[Any], day: int) -> None:
     assert HomeAssistant('http://ha:8123', 'tok').history(['sensor.p'], start, start) == {'sensor.p': []}
 
 
+def test_the_client_keeps_the_history_of_a_past_window(requests: list[Any]) -> None:
+    start = datetime(2026, 9, 13, 12, 0, tzinfo=TZ)
+    client = HomeAssistant('http://ha:8123', 'tok')
+
+    found = client.history(['sensor.p'], start, start + timedelta(hours=1))
+    assert client.history(['sensor.p'], start, start + timedelta(hours=1)) == found
+    assert len(requests) == 1
+    # A different window, or different sensors, need a request.
+    client.history(['sensor.p'], start, start + timedelta(hours=2))
+    client.history(['sensor.p', 'sensor.air'], start, start + timedelta(hours=1))
+    assert len(requests) == 3
+
+
+def test_the_client_does_not_keep_the_history_of_a_window_that_ends_now(requests: list[Any]) -> None:
+    start = datetime(2026, 9, 13, 12, 0, tzinfo=TZ)
+    end = datetime.now(TZ)
+    client = HomeAssistant('http://ha:8123', 'tok')
+
+    client.history(['sensor.p'], start, end)
+    client.history(['sensor.p'], start, end)
+    assert len(requests) == 2
+
+
+def test_the_client_keeps_the_last_windows(requests: list[Any]) -> None:
+    start = datetime(2026, 9, 13, 12, 0, tzinfo=TZ)
+    client = HomeAssistant('http://ha:8123', 'tok')
+    ends = [start + timedelta(minutes=i) for i in range(homeassistant.MAX_WINDOWS + 1)]
+    for end in ends:
+        client.history(['sensor.p'], start, end)
+
+    # The client removed the oldest window. It keeps the last one.
+    client.history(['sensor.p'], start, ends[-1])
+    assert len(requests) == len(ends)
+    client.history(['sensor.p'], start, ends[0])
+    assert len(requests) == len(ends) + 1
+
+
 def test_unit_power_class_and_name_of_a_sensor(requests: list[Any]) -> None:
     client = HomeAssistant('http://ha:8123/', 'tok')
     assert (client.unit('sensor.air'), client.is_power('sensor.air'), client.name('sensor.air')) == (

@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import json
+import threading
 import time
 import urllib.parse
 import urllib.request
 from collections.abc import Callable, Sequence
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -15,6 +16,10 @@ from homebuddy.model import Reading, SensorError
 
 # The client asks again for the attributes of a sensor and for the time zone after this time.
 CACHE_SECONDS = 600
+# The client keeps the history of a window that ended this time before the request. The past does not change.
+SETTLED_SECONDS = 60
+# The number of windows of history that the client keeps. Home Assistant keeps about 10 days of history.
+MAX_WINDOWS = 10
 
 
 class HomeAssistant:
@@ -25,6 +30,10 @@ class HomeAssistant:
         self._token = token
         # The answer of each path that the client keeps, with the time of the answer
         self._cache: dict[str, tuple[float, Any]] = {}
+        # The history of each past window, by its sensors, its start and its end, the oldest first. The threads of
+        # the pages share the client, so a lock protects it.
+        self._windows: dict[tuple[tuple[str, ...], datetime, datetime], dict[str, list[Reading]]] = {}
+        self._lock = threading.Lock()
 
     def _get(self, path: str) -> Any:
         headers = {'Authorization': f'Bearer {self._token}', 'Content-Type': 'application/json'}
@@ -42,8 +51,13 @@ class HomeAssistant:
     def history(self, sensors: Sequence[str], start: datetime, end: datetime) -> dict[str, list[Reading]]:
         """The history of each sensor, from one request: each state, also a state that is not a number.
 
-        A sensor without states has an empty list.
+        A sensor without states has an empty list. The client keeps the history of a past window. See
+        ``SETTLED_SECONDS`` and ``MAX_WINDOWS``.
         """
+        key = (tuple(sensors), start, end)
+        with self._lock:
+            if key in self._windows:
+                return dict(self._windows[key])
         start_iso = start.astimezone(ZoneInfo('UTC')).isoformat()
         end_iso = end.astimezone(ZoneInfo('UTC')).isoformat()
         # Home Assistant reads ``minimal_response`` and ``no_attributes`` without a value. Only the first state of
@@ -70,7 +84,12 @@ class HomeAssistant:
                 ts = datetime.fromisoformat(ts_raw.replace('Z', '+00:00'))
                 readings.append((ts, str(item['state'])))
             readings.sort()
-        return found
+        if end < datetime.now(ZoneInfo('UTC')) - timedelta(seconds=SETTLED_SECONDS):
+            with self._lock:
+                self._windows[key] = found
+                while len(self._windows) > MAX_WINDOWS:
+                    del self._windows[next(iter(self._windows))]
+        return dict(found)
 
     def _attributes(self, sensor: str) -> dict[str, Any]:
         """The attributes of a sensor. One request gets the state of each entity of Home Assistant."""

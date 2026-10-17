@@ -19,7 +19,8 @@ homebuddy.yml -> config -> search -> result -> page
 5. The search gives one `SearchResult` for each tab. The result has numbers and no text.
 6. The page draws the chart, the lanes and the events table from the result.
 
-homebuddy has no database. Each load of the page reads the history from Home Assistant.
+homebuddy has no database. The client keeps the history of the last 10 past windows in memory, because the past
+does not change. Each other load of the page reads the history from Home Assistant.
 
 ## The modules
 
