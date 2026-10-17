@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -70,12 +70,16 @@ class FakeSource:
     zone: str = 'UTC'
     # The number of times that the search asked for the time zone
     zone_calls: int = 0
-    calls: list[tuple[str, datetime, datetime]] = field(default_factory=list)
+    # The sensors, the start and the end of each call of ``history``
+    calls: list[tuple[tuple[str, ...], datetime, datetime]] = field(default_factory=list)
 
-    def history(self, sensor: str, start: datetime, end: datetime) -> list[Reading]:
-        self.calls.append((sensor, start, end))
-        found: list[Reading] = self.states[sensor] if isinstance(self.states, dict) else self.states
-        return [state for state in found if start <= state[0] <= end] if self.window else found
+    def history(self, sensors: Sequence[str], start: datetime, end: datetime) -> dict[str, list[Reading]]:
+        self.calls.append((tuple(sensors), start, end))
+        found: dict[str, list[Reading]] = {}
+        for sensor in sensors:
+            states: list[Reading] = self.states[sensor] if isinstance(self.states, dict) else self.states
+            found[sensor] = [state for state in states if start <= state[0] <= end] if self.window else states
+        return found
 
     def unit(self, sensor: str) -> str:
         return self.sensor_info(sensor).unit

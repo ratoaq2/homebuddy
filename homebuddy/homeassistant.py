@@ -6,6 +6,7 @@ import json
 import time
 import urllib.parse
 import urllib.request
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -37,29 +38,38 @@ class HomeAssistant:
             found = self._cache[path] = (time.monotonic(), self._get(path))
         return found[1]
 
-    def history(self, sensor: str, start: datetime, end: datetime) -> list[Reading]:
-        """The history of a sensor: each state, also a state that is not a number."""
+    def history(self, sensors: Sequence[str], start: datetime, end: datetime) -> dict[str, list[Reading]]:
+        """The history of each sensor, from one request: each state, also a state that is not a number.
+
+        A sensor without states has an empty list.
+        """
         start_iso = start.astimezone(ZoneInfo('UTC')).isoformat()
         end_iso = end.astimezone(ZoneInfo('UTC')).isoformat()
+        # Home Assistant reads ``minimal_response`` and ``no_attributes`` without a value. Only the first state of
+        # each sensor then has its entity id.
         params = urllib.parse.urlencode(
             {
-                'filter_entity_id': sensor,
+                'filter_entity_id': ','.join(sensors),
                 'end_time': end_iso,
-                'minimal_response': 'false',
+                'minimal_response': '',
+                'no_attributes': '',
             }
         )
         data: list[list[dict[str, Any]]] = self._get(f'/api/history/period/{start_iso}?{params}')
-        if not data or not data[0]:
-            return []
-
-        readings = []
-        for item in data[0]:
-            ts_raw = item.get('last_changed') or item.get('last_updated')
-            if 'state' not in item or not ts_raw:
+        found: dict[str, list[Reading]] = {sensor: [] for sensor in sensors}
+        # The order of the lists is not the order of the sensors in the request.
+        for items in data:
+            readings = found.get(items[0].get('entity_id', '')) if items else None
+            if readings is None:
                 continue
-            ts = datetime.fromisoformat(ts_raw.replace('Z', '+00:00'))
-            readings.append((ts, str(item['state'])))
-        return sorted(readings)
+            for item in items:
+                ts_raw = item.get('last_changed') or item.get('last_updated')
+                if 'state' not in item or not ts_raw:
+                    continue
+                ts = datetime.fromisoformat(ts_raw.replace('Z', '+00:00'))
+                readings.append((ts, str(item['state'])))
+            readings.sort()
+        return found
 
     def _attributes(self, sensor: str) -> dict[str, Any]:
         state: dict[str, Any] = self._cached(f'/api/states/{urllib.parse.quote(sensor, safe="")}')

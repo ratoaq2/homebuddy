@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import date, datetime, time, timedelta
 from typing import Protocol
 from zoneinfo import ZoneInfo
@@ -23,8 +23,8 @@ class NoDataError(Exception):
 class Source(Protocol):
     """Where the search gets its data. ``homebuddy.homeassistant.HomeAssistant`` is one source."""
 
-    def history(self, sensor: str, start: datetime, end: datetime) -> Sequence[Reading]:
-        """Each state of the sensor from ``start`` to ``end``, in the order of time."""
+    def history(self, sensors: Sequence[str], start: datetime, end: datetime) -> Mapping[str, Sequence[Reading]]:
+        """Each state of each sensor from ``start`` to ``end``, in the order of time. Each sensor is a key."""
 
     def unit(self, sensor: str) -> str:
         """The unit of the sensor, for example ``kW``. It is empty for a sensor without a unit."""
@@ -83,7 +83,7 @@ def find(
     lines = [entry.sensor for rules in settings.tabs.values() for entry in rules.sensors]
     read = dict.fromkeys([*lines, *(s for detector in detectors.values() for s in detector.sensors)])
     history = History(
-        {sensor: source.history(sensor, start - margin, min(end + margin, now)) for sensor in read},
+        dict(source.history(list(read), start - margin, min(end + margin, now))),
         {sensor: source.unit(sensor) for sensor in read},
     )
     points = {sensor: history.numbers(sensor) for sensor in dict.fromkeys(lines)}

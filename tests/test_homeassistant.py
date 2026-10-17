@@ -36,18 +36,21 @@ def requests(monkeypatch: pytest.MonkeyPatch) -> list[Any]:
 
 
 HISTORY = [
+    [{'entity_id': 'sensor.air', 'state': '21.5', 'last_changed': '2026-09-13T10:00:30Z'}],
     [
-        {'state': '1500.5', 'last_changed': '2026-09-13T10:01:00Z'},
+        {'entity_id': 'sensor.p', 'state': '1500.5', 'last_changed': '2026-09-13T10:01:00Z'},
         {'state': 'unavailable', 'last_changed': '2026-09-13T10:02:00Z'},
         {'state': '800', 'last_updated': '2026-09-13T10:00:00+00:00'},
         {'last_changed': '2026-09-13T10:03:00Z'},
         {'state': '900'},
-    ]
+    ],
 ]
 STATE = {'state': '21.5', 'attributes': {'unit_of_measurement': '°C', 'friendly_name': 'Discharge'}}
 ANSWERS: dict[str, Any] = {
     '/api/history/period/2026-09-13T10:00:00+00:00': HISTORY,
     '/api/history/period/2026-09-14T10:00:00+00:00': [],
+    # A list without states, and a list of a sensor that the request does not have
+    '/api/history/period/2026-09-15T10:00:00+00:00': [[], [{'entity_id': 'sensor.other', 'state': '1'}]],
     '/api/states/sensor.air': STATE,
     '/api/states/sensor.p': {'state': '1.5', 'attributes': {'unit_of_measurement': 'kW', 'device_class': 'power'}},
     '/api/states/sensor.door': {'state': 'on'},
@@ -58,27 +61,36 @@ ANSWERS: dict[str, Any] = {
 
 def test_history(requests: list[Any]) -> None:
     start = datetime(2026, 9, 13, 12, 0, tzinfo=TZ)
-    readings = HomeAssistant('http://ha:8123/', 'tok').history('sensor.p', start, start + timedelta(hours=1))
+    client = HomeAssistant('http://ha:8123/', 'tok')
+    found = client.history(['sensor.p', 'sensor.air', 'sensor.door'], start, start + timedelta(hours=1))
 
-    # Each state that has a time, in the order of time. A state that is not a number stays.
-    assert readings == [
-        (datetime(2026, 9, 13, 10, 0, tzinfo=UTC), '800'),
-        (datetime(2026, 9, 13, 10, 1, tzinfo=UTC), '1500.5'),
-        (datetime(2026, 9, 13, 10, 2, tzinfo=UTC), 'unavailable'),
-    ]
-    assert numbers(readings) == [
+    # Each state that has a time, in the order of time. A state that is not a number stays. The answer has the
+    # sensors in a different order, and a sensor without states has an empty list.
+    assert found == {
+        'sensor.p': [
+            (datetime(2026, 9, 13, 10, 0, tzinfo=UTC), '800'),
+            (datetime(2026, 9, 13, 10, 1, tzinfo=UTC), '1500.5'),
+            (datetime(2026, 9, 13, 10, 2, tzinfo=UTC), 'unavailable'),
+        ],
+        'sensor.air': [(datetime(2026, 9, 13, 10, 0, 30, tzinfo=UTC), '21.5')],
+        'sensor.door': [],
+    }
+    assert numbers(found['sensor.p']) == [
         (datetime(2026, 9, 13, 10, 0, tzinfo=UTC), 800.0),
         (datetime(2026, 9, 13, 10, 1, tzinfo=UTC), 1500.5),
     ]
+    # One request for all the sensors. Home Assistant reads the two keys without a value.
     [request] = requests
     assert request.full_url.startswith('http://ha:8123/api/history/period/2026-09-13T10:00:00+00:00?')
-    assert 'filter_entity_id=sensor.p' in request.full_url
+    assert 'filter_entity_id=sensor.p%2Csensor.air%2Csensor.door&' in request.full_url
+    assert request.full_url.endswith('&minimal_response=&no_attributes=')
     assert request.get_header('Authorization') == 'Bearer tok'
 
 
-def test_history_without_states(requests: list[Any]) -> None:
-    start = datetime(2026, 9, 14, 12, 0, tzinfo=TZ)
-    assert HomeAssistant('http://ha:8123', 'tok').history('sensor.p', start, start) == []
+@pytest.mark.parametrize('day', [14, 15])
+def test_history_without_states(requests: list[Any], day: int) -> None:
+    start = datetime(2026, 9, day, 12, 0, tzinfo=TZ)
+    assert HomeAssistant('http://ha:8123', 'tok').history(['sensor.p'], start, start) == {'sensor.p': []}
 
 
 def test_unit_power_class_and_name_of_a_sensor(requests: list[Any]) -> None:

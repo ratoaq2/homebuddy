@@ -149,8 +149,9 @@ def test_a_type_with_two_sensor_fields_reads_the_two_sensors(monkeypatch: pytest
     [result] = find_day(settings, source, day.date(), now=datetime(2026, 9, 14, 12, 0, tzinfo=TZ))
     assert result.sensor == 'sensor.p'
     assert [(e.detector, f'{e.start:%H:%M}', f'{e.end:%H:%M}') for e in result.events] == [('door', '08:20', '08:25')]
-    # The search loads each sensor one time.
-    assert sorted(sensor for sensor, _, _ in source.calls) == ['sensor.bell', 'sensor.door', 'sensor.p']
+    # The search loads each sensor one time, in one call.
+    [(sensors, _, _)] = source.calls
+    assert sorted(sensors) == ['sensor.bell', 'sensor.door', 'sensor.p']
 
 
 @pytest.mark.parametrize(

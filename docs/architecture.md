@@ -13,8 +13,8 @@ homebuddy.yml -> config -> search -> result -> page
 
 1. `config` reads one YAML file and makes the `Settings`: the tabs and the detectors.
 2. The page makes the client of Home Assistant and gives it to the search as the source.
-3. The search loads the history of each sensor that a tab or a detector names. It gives one `History` object
-   to each detector.
+3. The search loads the history of each sensor that a tab or a detector names, with one request. It gives one
+   `History` object to each detector.
 4. Each detector gives `Event` objects. `conflicts` removes the events that a detector overrides.
 5. The search gives one `SearchResult` for each tab. The result has numbers and no text.
 6. The page draws the chart, the lanes and the events table from the result.
