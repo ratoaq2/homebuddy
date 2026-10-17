@@ -132,7 +132,7 @@ detectors:
     sensor: sensor.grid_power
     step_w: [900, 1100]             # the step up or the step down, in watts
     duration: [30, 90]              # the duration of a run, in seconds
-    max_ripple_w: 50
+    max_step_difference_w: 50
   heater:
     type: threshold
     sensor: sensor.heater_plug_power

@@ -67,9 +67,8 @@ detectors:
     sensor: sensor.grid_power
     step_w: [900, 1100]             # the step up or the step down, in watts
     duration: [30, 90]              # the duration of a run, in seconds
-    max_ripple_w: 50                # the power in the run stays within this value
-    max_step_difference_w: 100      # optional: the step up and the step down are equal within this value
-    side_load_w: [200, 300]         # optional: a second load that can start or stop in the run
+    max_step_difference_w: 50       # the step up and the step down are equal within this value
+    side_load_w: [200, 300]         # optional: a second load that can start or stop with the run
     min_gap: {minutes: 5}           # optional: homebuddy refuses a pulse that has a second pulse in this time
   air_conditioner:
     type: ramp
@@ -212,7 +211,7 @@ These keys are also necessary:
 | Type | Necessary keys |
 | --- | --- |
 | `level` | `levels_w` |
-| `pulse` | `step_w`, `duration`, `max_ripple_w` |
+| `pulse` | `step_w`, `duration`, `max_step_difference_w` |
 | `ramp` | `rise_per_minute`, `fall_per_minute`, `min_rise` |
 | `state` | `idle_states` |
 | `threshold` | `min_w` |

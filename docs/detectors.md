@@ -65,7 +65,8 @@ sensor. If it has a status sensor, use a [`state`](#state) detector. These are m
 2. A run starts when the power is at or above `baseline + lowest level x (1 - tolerance)`. The lowest level is
    the minimum of `levels_w`.
 3. A run ends when the power stays below that threshold for more than 1 minute. A shorter drop also ends the
-   run when the level after the drop is different.
+   run when the level changes at the drop: the level of the 2 minutes after the drop is different from the
+   level of the 2 minutes before it. A restart of Home Assistant can give a short drop.
 4. homebuddy ignores a run shorter than `min_duration`.
 5. homebuddy ignores a run that is not a run of the device:
    - A run does not stop. A run with more than 5 % of its points below the threshold is ignored.
@@ -92,7 +93,7 @@ detectors:
     sensor: sensor.grid_power
     step_w: [900, 1100]
     duration: [30, 90]
-    max_ripple_w: 50
+    max_step_difference_w: 50
 ```
 
 | Key | Meaning |
@@ -100,24 +101,26 @@ detectors:
 | `sensor` | Necessary. The power sensor, in W or kW. |
 | `step_w` | Necessary. The range of the step up or the step down, in watts. |
 | `duration` | Necessary. The range of the duration of a run. |
-| `max_ripple_w` | Necessary. The power in the run stays within this value. |
-| `max_step_difference_w` | Optional. The step up and the step down are equal within this value. The default is `max_ripple_w`. |
-| `side_load_w` | Optional. The range of the power of a second load that can start or stop in the run. |
+| `max_step_difference_w` | Necessary. The step up and the step down are equal within this value. |
+| `side_load_w` | Optional. The range of the power of a second load that can start or stop with the run. |
 | `min_gap` | Optional. homebuddy refuses a pulse that has a second pulse in this time. |
 
 How it works:
 
 1. The sensor can write more than one value in an update. homebuddy keeps the last value of each update.
 2. A candidate starts at a step up of the power in `step_w`. With `side_load_w`, the range is wider by the
-   power of the second load. The candidate ends at the first update that loses more than half of the step. A
-   candidate that is longer than `duration` is ignored.
-3. A candidate is a run when it obeys each of these rules:
-   - step: the step up or the step down is in `step_w`.
+   power of the second load.
+3. The candidate ends at the first step down that is equal to the step up, not later than `duration`. One of
+   the two steps is in `step_w`. The two steps are equal within `max_step_difference_w`, or the second load is
+   the only difference. A small load that starts or stops with the run makes the two steps different. A step
+   up without an equal step down is not a candidate.
+4. The sensor can show a step in two updates, when the load starts or stops in the time of an update. When no
+   single update is a step, homebuddy adds two updates in the same direction. Two loads can also make such a
+   step, so it counts only when the power is stable for two updates before the run and two updates after it:
+   each change is within `max_step_difference_w`.
+5. The power between the two steps does not count. Other loads can start and stop in the run.
+6. A candidate is a run when it obeys each of these rules:
    - duration: the duration is in `duration`, with a margin of 8 seconds.
-   - equal steps: the step up and the step down are equal within `max_step_difference_w`, or the second load
-     is the only difference. A small load that starts or stops in the run makes the two steps different.
-   - flat: each value in the run is equal to the level of the step within `max_ripple_w`, or the second load
-     is the only difference.
    - alone: no different candidate is less than `min_gap` before the start or after the end. Each candidate
      counts, also a candidate that a different rule refuses. Without `min_gap`, this rule is always true.
 

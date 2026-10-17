@@ -18,20 +18,18 @@ SAME_UPDATE_S = 2
 # The time between two updates changes by some seconds, so the duration range gets this margin.
 DURATION_MARGIN_S = 8
 
-RULES = ('step', 'duration', 'equal steps', 'flat', 'alone')
+RULES = ('duration', 'alone')
 
 
 @dataclass(frozen=True)
 class Candidate(Event):
     """A step up and its step down. ``rules`` has the result of each rule, in the order of ``RULES``.
 
-    The rules accept a candidate when each rule is true. Its power is the power of the run above the power
-    before it.
+    The rules accept a candidate when each rule is true. Its power is its step in ``step_w``.
     """
 
     rise: float
     fall: float
-    values: tuple[float, ...]  # The power in the run, minus the power before the run
     rules: tuple[bool, ...]
 
     @property
@@ -45,10 +43,8 @@ class Pulse(Detector):
     sensor: Sensor  # The power sensor
     step_w: Range
     duration: DurationRange
-    max_ripple_w: Positive  # The power in the run stays in this value
-    # The step up and the step down are equal in this value. None is ``max_ripple_w``.
-    max_step_difference_w: Positive | None = None
-    side_load_w: Range | None = None  # A second load that can start or stop in the run
+    max_step_difference_w: Positive  # The step up and the step down are equal in this value
+    side_load_w: Range | None = None  # A second load that can start or stop with the run
     # A candidate with a different candidate in this time before or after it is one of a series, and not a run
     min_gap: Duration | None = None
 
@@ -78,7 +74,12 @@ def updates(points: list[Point]) -> list[Point]:
 
 
 def candidates(points: list[Point], rules: Pulse) -> list[Candidate]:
-    """Each step up that can be the load, with or without the second load, and the result of each rule."""
+    """Each step up with an equal step down after it, not later than the longest duration.
+
+    One of the two steps is in ``step_w``. The power between the two steps does not count, because other loads
+    can start and stop in the run. A second load that starts or stops with the run makes the two steps different
+    by its power.
+    """
     data = updates(points)
     low, high = rules.step_w
     side = rules.side_load_w
@@ -87,39 +88,49 @@ def candidates(points: list[Point], rules: Pulse) -> list[Candidate]:
     longest = rules.duration[1].total_seconds() + DURATION_MARGIN_S
     gap = rules.min_gap or timedelta(0)
 
-    def same(difference: float, limit: float) -> bool:
-        """True when two values are equal, or when the second load is the only difference."""
-        return abs(difference) <= limit or (side is not None and side[0] <= abs(difference) <= side[1])
+    def equal(rise: float, fall: float) -> bool:
+        """True when one step is in ``step_w``, and the two steps are equal or the second load is the difference."""
+        difference = abs(rise - fall)
+        return (low <= rise <= high or low <= fall <= high) and (
+            difference <= rules.max_step_difference_w or (side is not None and side[0] <= difference <= side[1])
+        )
+
+    def near_range(rise: float) -> bool:
+        return low - side_max <= rise <= high + side_max
+
+    def stable(first: int, last: int) -> bool:
+        """True when each change of the power from update ``first`` to update ``last`` is a small difference."""
+        return (
+            0 < first
+            and last < len(data)
+            and all(abs(data[k][1] - data[k - 1][1]) <= rules.max_step_difference_w for k in range(first, last + 1))
+        )
 
     result = []
-    i = 1
-    while i < len(data):
-        start, before = data[i][0], data[i - 1][1]
-        rise = data[i][1] - before
-        if not low - side_max <= rise <= high + side_max:
-            i += 1
+    for i in range(1, len(data)):
+        s = i  # The first update of the step up
+        rise = data[i][1] - data[i - 1][1]
+        # The sensor can show a step in two updates, when the load starts in the time of an update
+        if not near_range(rise) and i > 1 and not near_range(first := data[i - 1][1] - data[i - 2][1]) and first > 0:
+            s, rise = i - 1, data[i][1] - data[i - 2][1]
+        if not near_range(rise):
             continue
-        # The run ends at the first update that loses more than half of the step
-        j = i + 1
-        while j < len(data) and data[j][1] >= before + rise / 2 and (data[j][0] - start).total_seconds() <= longest:
-            j += 1
-        if j == len(data) or (data[j][0] - start).total_seconds() > longest:
-            i += 1
-            continue
-        fall = data[j - 1][1] - data[j][1]
-        values = tuple(v - before for _, v in data[i:j])
-        up, down = low <= rise <= high, low <= fall <= high
-        level = values[0] if up else values[-1]
-        duration_s = (data[j][0] - start).total_seconds()
-        ok = (
-            up or down,
-            shortest <= duration_s <= longest,
-            same(rise - fall, rules.max_step_difference_w or rules.max_ripple_w),
-            all(same(v - level, rules.max_ripple_w) for v in values),
-        )
-        power_w = sum(values) / len(values)
-        result.append(Candidate(start, data[j][0], rise, fall, values, ok, power_w=power_w))
-        i = j + 1
+        start = data[s][0]
+        # The end is the first step down that is equal to the step up. It can also be in two updates.
+        for j in range(i + 1, len(data)):
+            duration_s = (data[j][0] - start).total_seconds()
+            if duration_s > longest:
+                break
+            fall, split = data[j - 1][1] - data[j][1], s < i
+            if not equal(rise, fall) and j > i + 1 and data[j - 1][1] < data[j - 2][1]:
+                fall, split = data[j - 2][1] - data[j][1], True
+            # A step in two updates can also be two loads. It counts only when no other load changes before and after.
+            if split and equal(rise, fall) and not (stable(s - 2, s - 1) and stable(j + 1, j + 2)):
+                break
+            if equal(rise, fall):
+                power_w = rise if low <= rise <= high else fall
+                result.append(Candidate(start, data[j][0], rise, fall, (duration_s >= shortest,), power_w=power_w))
+                break
     # The rule "alone" needs each candidate, also a candidate that a different rule refuses
     for n, c in enumerate(result):
         near = (n > 0 and c.start - result[n - 1].end < gap) or (

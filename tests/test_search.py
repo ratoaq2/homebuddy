@@ -106,7 +106,7 @@ def test_find_day_sessions_has_the_events_of_each_detector(monkeypatch: pytest.M
     profile = [(60, BASELINE_W), (3, BASELINE_W + 1000), (177, BASELINE_W), (225, charge_w), (60, BASELINE_W)]
     points = make_points(datetime(2026, 9, 13, 8, 0, tzinfo=TZ), profile, step_s=16)
     source = FakeSource(points)
-    pump = Pulse(step_w=(900, 1100), duration=DURATION, max_ripple_w=50, sensor='sensor.p')
+    pump = Pulse(step_w=(900, 1100), duration=DURATION, max_step_difference_w=50, sensor='sensor.p')
     settings = with_detectors(well_pump=pump, other=pump.model_copy(update={'step_w': (400, 500)}))
 
     result = find_main_day(settings, source, date(2026, 9, 13), now=datetime(2026, 9, 14, 12, 0, tzinfo=TZ))
@@ -220,7 +220,7 @@ def test_a_power_sensor_in_kw_gives_the_same_result_as_the_sensor_in_w(
     # One point each 16 s from 08:00: a pump run of 48 s at 08:16, then a charge of one hour at 09:04.
     profile = [(60, BASELINE_W), (3, BASELINE_W + 1000), (177, BASELINE_W), (225, charge_w), (60, BASELINE_W)]
     points = make_points(datetime(2026, 9, 13, 8, 0, tzinfo=TZ), profile, step_s=16)
-    pump = Pulse(step_w=(900, 1100), duration=DURATION, max_ripple_w=50, sensor='sensor.p')
+    pump = Pulse(step_w=(900, 1100), duration=DURATION, max_step_difference_w=50, sensor='sensor.p')
     settings = with_detectors(well_pump=pump)
     now = datetime(2026, 9, 14, 12, 0, tzinfo=TZ)
 
@@ -385,7 +385,7 @@ def test_find_day_removes_the_event_of_a_detector_that_a_different_one_overrides
 def test_a_result_has_the_detectors_and_no_settings(charge_w: float) -> None:
     profile = [(60, BASELINE_W), (60, charge_w), (60, BASELINE_W)]
     source = FakeSource(make_points(datetime(2026, 9, 13, 8, 0, tzinfo=TZ), profile, step_s=60))
-    pump = Pulse(step_w=(900, 1100), duration=DURATION, max_ripple_w=50, sensor='sensor.p', name='Pump')
+    pump = Pulse(step_w=(900, 1100), duration=DURATION, max_step_difference_w=50, sensor='sensor.p', name='Pump')
     settings = with_detectors(well_pump=pump)
 
     result = find_main_day(settings, source, date(2026, 9, 13), now=datetime(2026, 9, 14, tzinfo=TZ))

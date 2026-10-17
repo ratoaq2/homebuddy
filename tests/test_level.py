@@ -76,6 +76,17 @@ def test_detect_short_dip_splits_at_level_change(day_start: datetime) -> None:
     )
 
 
+def test_detect_short_dip_keeps_run_when_the_level_changes_later(day_start: datetime) -> None:
+    # A restart of Home Assistant gives one point at 0 W in an 8 A charge. The car changes to 6 A later.
+    eight, six = (BASELINE_W + LEVELS[c] for c in (8, 6))
+    points = make_points(day_start, [(10, BASELINE_W), (200, eight), (1, 0.0), (100, eight), (20, six), (10, 0.0)])
+    runs = detect_runs(points, BASELINE_W, EV)
+
+    assert [(r.level_w, r.start, r.end) for r in runs] == [
+        (LEVELS[8], day_start + timedelta(seconds=10 * 30), day_start + timedelta(seconds=331 * 30))
+    ]
+
+
 def test_detect_run_open_at_end(day_start: datetime, charge_w: float) -> None:
     points = make_points(day_start, [(10, BASELINE_W), (30, charge_w)])
     runs = detect_runs(points, BASELINE_W, EV)

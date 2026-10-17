@@ -93,14 +93,19 @@ def compute_baseline(points: list[Point]) -> float:
     return _percentile([v for _, v in points], BASELINE_PERCENTILE) if points else 0
 
 
+def _nearest_level(powers: list[float], baseline: float, rules: Level) -> float:
+    """The level of the rules for these powers of a run."""
+    # House load only adds power, so the floor of the run is the level of the device
+    floor = _percentile(powers, BASELINE_PERCENTILE)
+    return min(rules.levels_w, key=lambda w: abs(w - (floor - baseline)))
+
+
 def _close_run(start: datetime, end: datetime, powers: list[float], baseline: float, rules: Level) -> Run:
     # The average does not use the first and the last point, where the power rises and falls.
     stable_powers = powers[1:-1] if len(powers) > 2 else powers
     avg_power = sum(stable_powers) / len(stable_powers) if stable_powers else 0
     duration_h = (end - start).total_seconds() / 3600.0
-    # House load only adds power, so the floor of the run is the level of the device
-    floor = _percentile(powers, BASELINE_PERCENTILE)
-    level = min(rules.levels_w, key=lambda w: abs(w - (floor - baseline)))
+    level = _nearest_level(powers, baseline, rules)
     # The energy uses the level of the rules, not the measured power
     return Run(start, end, avg_power, level, power_w=level, energy_kwh=level / 1000.0 * duration_h)
 
@@ -108,22 +113,26 @@ def _close_run(start: datetime, end: datetime, powers: list[float], baseline: fl
 def _split_run(
     start: datetime,
     end: datetime,
-    powers: list[float],
+    run: list[Point],
     dips: list[tuple[int, datetime, datetime]],
     baseline: float,
     rules: Level,
 ) -> list[Run]:
-    """Close a run. A short dip splits it when the level after the dip is different.
+    """Close a run. A short dip splits it when the level near the dip changes.
 
-    Each dip is the number of powers before it, its start and its end.
+    ``run`` has the points of the run above the threshold. Each dip is the number of these points before it,
+    its start and its end. The level of each side comes from ``STEP_FAR`` next to the dip, because the device
+    can change its level later in the run without a dip.
     """
     runs: list[Run] = []
     first = 0
+    powers = [power for _, power in run]
     for count, dip_start, dip_end in dips:
-        before = _close_run(start, dip_start, powers[first:count], baseline, rules)
-        after = _close_run(dip_end, end, powers[count:], baseline, rules)
-        if before.level_w != after.level_w:
-            runs.append(before)
+        last_before, first_after = run[count - 1][0], run[count][0]
+        before = [power for ts, power in run[first:count] if ts >= last_before - STEP_FAR]
+        after = [power for ts, power in run[count:] if ts <= first_after + STEP_FAR]
+        if _nearest_level(before, baseline, rules) != _nearest_level(after, baseline, rules):
+            runs.append(_close_run(start, dip_start, powers[first:count], baseline, rules))
             start, first = dip_end, count
     runs.append(_close_run(start, end, powers[first:], baseline, rules))
     return runs
@@ -168,7 +177,7 @@ def detect_runs(points: list[Point], baseline: float, rules: Level) -> list[Run]
     runs: list[Run] = []
     in_run = False
     run_start = points[0][0]
-    powers: list[float] = []
+    run: list[Point] = []  # The points of the run above the threshold
     below_since: datetime | None = None
     # The short drops of the run. A change of the level can be one of them.
     dips: list[tuple[int, datetime, datetime]] = []
@@ -178,24 +187,24 @@ def detect_runs(points: list[Point], baseline: float, rules: Level) -> list[Run]
             if not in_run:
                 in_run = True
                 run_start = ts
-                powers = [power]
+                run = [(ts, power)]
                 dips = []
             else:
                 if below_since is not None:
-                    dips.append((len(powers), below_since, ts))
-                powers.append(power)
+                    dips.append((len(run), below_since, ts))
+                run.append((ts, power))
             below_since = None
         elif in_run:
             if below_since is None:
                 below_since = ts
             elif ts - below_since > DROP_GRACE:
                 # A longer drop is the end of the run
-                runs += _split_run(run_start, below_since, powers, dips, baseline, rules)
+                runs += _split_run(run_start, below_since, run, dips, baseline, rules)
                 in_run = False
                 below_since = None
 
     # A run that continues at the end of the data
-    if in_run and powers:
-        runs += _split_run(run_start, points[-1][0], powers, dips, baseline, rules)
+    if in_run and run:
+        runs += _split_run(run_start, points[-1][0], run, dips, baseline, rules)
 
     return [r for r in runs if r.end - r.start >= rules.min_duration and _is_run(r, points, threshold, rules)]

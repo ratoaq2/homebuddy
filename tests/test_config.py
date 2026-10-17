@@ -88,8 +88,8 @@ def test_the_settings_of_a_file(tmp_path: Path) -> None:
         '  ev:\n    type: level\n    sensor: sensor.grid\n    levels_w: [2400, 3840.5, 7680]\n'
         '    tolerance: 0.2\n    min_duration: "00:30:00"\n'
         '  well_pump:\n    type: pulse\n    sensor: sensor.grid\n'
-        '    step_w: [900, 1100]\n    duration: [30, 90]\n    max_ripple_w: 50\n'
-        '    max_step_difference_w: 100\n    min_gap: {minutes: 5}\n'
+        '    step_w: [900, 1100]\n    duration: [30, 90]\n    max_step_difference_w: 100\n'
+        '    min_gap: {minutes: 5}\n'
     )
     detectors: dict[str, Detector] = {
         'ev': Level(
@@ -101,7 +101,6 @@ def test_the_settings_of_a_file(tmp_path: Path) -> None:
         'well_pump': Pulse(
             step_w=(900, 1100),
             duration=DURATION,
-            max_ripple_w=50,
             max_step_difference_w=100,
             min_gap=timedelta(minutes=5),
             sensor='sensor.grid',
@@ -121,7 +120,8 @@ def test_the_detectors_have_the_order_of_the_file(tmp_path: Path) -> None:
     (tmp_path / 'homebuddy.yml').write_text(
         f'home_assistant:\n  url: http://file\ntimezone: UTC\n{TABS_YAML}'
         'detectors:\n'
-        '  pump: {type: pulse, sensor: sensor.grid, step_w: [900, 1100], duration: [30, 90], max_ripple_w: 50}\n'
+        '  pump: {type: pulse, sensor: sensor.grid, step_w: [900, 1100], duration: [30, 90],\n'
+        '         max_step_difference_w: 50}\n'
         '  air_conditioner:\n    type: ramp\n    sensor: sensor.air\n'
         '    rise_per_minute: 5\n    fall_per_minute: 4\n    min_rise: 25\n'
         '  fan: {type: ramp, sensor: sensor.air, rise_per_minute: 1, fall_per_minute: 1, min_rise: 5,\n'
@@ -130,7 +130,7 @@ def test_the_detectors_have_the_order_of_the_file(tmp_path: Path) -> None:
     )
     settings = load_settings()
     assert settings.detectors == {
-        'pump': Pulse(step_w=(900, 1100), duration=DURATION, max_ripple_w=50, sensor='sensor.grid'),
+        'pump': Pulse(step_w=(900, 1100), duration=DURATION, max_step_difference_w=50, sensor='sensor.grid'),
         'air_conditioner': Ramp(rise_per_minute=5, fall_per_minute=4, min_rise=25, sensor='sensor.air'),
         'fan': Ramp(
             rise_per_minute=1, fall_per_minute=1, min_rise=5, max_pause=timedelta(minutes=2), sensor='sensor.air'
@@ -142,7 +142,7 @@ def test_the_detectors_have_the_order_of_the_file(tmp_path: Path) -> None:
 
 
 def test_file_without_an_ev_detector(tmp_path: Path) -> None:
-    pulse = 'type: pulse, sensor: sensor.grid, step_w: [1, 2], duration: [1, 2], max_ripple_w: 50'
+    pulse = 'type: pulse, sensor: sensor.grid, step_w: [1, 2], duration: [1, 2], max_step_difference_w: 50'
     (tmp_path / 'homebuddy.yml').write_text(
         f'home_assistant:\n  url: http://file\ntimezone: UTC\n{TABS_YAML}detectors: {{pump: {{{pulse}}}}}\n'
     )
@@ -215,7 +215,7 @@ def test_file_without_a_detector(tmp_path: Path) -> None:
 
 
 def test_name_of_a_detector(tmp_path: Path) -> None:
-    pulse = 'type: pulse, sensor: sensor.grid, step_w: [1, 2], duration: [1, 2], max_ripple_w: 50'
+    pulse = 'type: pulse, sensor: sensor.grid, step_w: [1, 2], duration: [1, 2], max_step_difference_w: 50'
     (tmp_path / 'homebuddy.yml').write_text(
         f'home_assistant:\n  url: http://file\ntimezone: UTC\n{TABS_YAML}'
         'detectors:\n'
@@ -300,7 +300,7 @@ def test_empty_yaml_file(tmp_path: Path) -> None:
         ('a.yml', ev('name: 5'), 'detectors.ev.name: Input should be a valid string'),
         (
             'a.yml',
-            'detectors: {pump: {max_ripple_w: 50}}\n',
+            'detectors: {pump: {max_step_difference_w: 50}}\n',
             'detectors.pump in .*a.yml must have the type level or pulse or ramp',
         ),
         # The name of a detector does not give its type.
@@ -322,7 +322,7 @@ def test_empty_yaml_file(tmp_path: Path) -> None:
         ),
         (
             'a.yml',
-            'detectors: {pump: {type: pulse, max_ripple_w: 50}}\n',
+            'detectors: {pump: {type: pulse, max_step_difference_w: 50}}\n',
             'detectors.pump.step_w: Field required',
         ),
         ('a.yml', 'detectors: {c: {type: ramp, min_rise: 20}}\n', 'detectors.c.rise_per_minute: Field required'),

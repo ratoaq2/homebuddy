@@ -114,6 +114,17 @@ def test_chart_options(charge_w: float) -> None:
     assert chart_height(result) == 384 + 22
 
 
+def test_chart_options_bar_of_an_event_across_midnight(charge_w: float) -> None:
+    # A charge from 22:05 of the day before to 02:05. The bar shows the part in the day.
+    points = make_points(datetime(2026, 9, 12, 22, 0, tzinfo=TZ), [(10, BASELINE_W), (480, charge_w), (10, 0)])
+    result = replace(make_result(charge_w), points=points, found={'ev': detect_runs(points, BASELINE_W, EV)})
+    assert lane(chart_options(result, DATE_FORMAT), 'ev')[1] == [('2026-09-13 00:00:00', '2026-09-13 02:05:00')]
+    # A charge from 22:05 to 02:05 of the next day
+    later = [(t + timedelta(days=1), p) for t, p in points]
+    result = replace(make_result(charge_w), points=later, found={'ev': detect_runs(later, BASELINE_W, EV)})
+    assert lane(chart_options(result, DATE_FORMAT), 'ev')[1] == [('2026-09-13 22:05:00', '2026-09-14 00:00:00')]
+
+
 def test_chart_options_today_shows_the_full_day(charge_w: float) -> None:
     result = replace(make_result(charge_w), end=datetime(2026, 9, 13, 15, 0, tzinfo=TZ))
     assert chart_options(result, DATE_FORMAT)['xAxis'][0]['max'] == '2026-09-14 00:00:00'
@@ -169,7 +180,7 @@ def make_pump_result(charge_w: float) -> SearchResult:
     result = make_result(charge_w)
     pump = make_points(datetime(2026, 9, 13, 13, 8, tzinfo=TZ), [(3, BASELINE_W + 1000)], step_s=16)
     points = sorted([p for p in result.points if not pump[0][0] <= p[0] <= pump[-1][0]] + pump)
-    rules = Pulse(step_w=(900, 1100), duration=DURATION, max_ripple_w=50, sensor='sensor.p')
+    rules = Pulse(step_w=(900, 1100), duration=DURATION, max_step_difference_w=50, sensor='sensor.p')
     found = {**result.found, 'well_pump': candidates(points, rules)}
     history = make_history('sensor.p', points)
     return replace(
@@ -293,10 +304,10 @@ def test_debug_data_of_a_detector(charge_w: float) -> None:
     # A detector gives values. The page makes each text: a time is in the time zone of the page.
     [(title, pulses)] = result.detectors['well_pump'].debug(result.found['well_pump'], result.history).items()
     assert title == '1 candidates, 1 accepted'
-    assert pulses.rows == [(datetime(2026, 9, 13, 13, 8, tzinfo=TZ), 60, 1000, 1000, 'ok', 'ok', 'ok', 'ok', 'ok')]
+    assert pulses.rows == [(datetime(2026, 9, 13, 13, 8, tzinfo=TZ), 60, 1000, 1000, 'ok', 'ok')]
     assert table_lines(pulses, ZoneInfo('UTC')) == [
-        'Start     Duration (s)  Rise (W)  Fall (W)  step  duration  equal steps  flat  alone',
-        '11:08:00  60            1000      1000      ok    ok        ok           ok    ok',
+        'Start     Duration (s)  Rise (W)  Fall (W)  duration  alone',
+        '11:08:00  60            1000      1000      ok        ok',
     ]
     [(title, session)] = result.detectors['ev'].debug(result.found['ev'], result.history).items()
     assert title == 'Run 1: 121 data points'
@@ -501,7 +512,9 @@ async def test_page_shows_the_runs_and_the_candidates(
 async def test_page_hides_the_rows_of_the_hidden_detectors_of_a_tab(
     found: list[tuple[Any, ...]], monkeypatch: pytest.MonkeyPatch, charge_w: float
 ) -> None:
-    pump = 'well_pump: {type: pulse, sensor: sensor.p, step_w: [900, 1100], duration: [30, 90], max_ripple_w: 50}'
+    pump = (
+        'well_pump: {type: pulse, sensor: sensor.p, step_w: [900, 1100], duration: [30, 90], max_step_difference_w: 50}'
+    )
     file = FILE.replace('detectors: {', f'detectors: {{{pump}, ')
 
     def write(hidden: str) -> None:

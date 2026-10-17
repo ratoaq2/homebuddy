@@ -227,10 +227,11 @@ def chart_options(
             'tooltip': EVENT_TOOLTIP,
             'emphasis': {'disabled': True},
             # A mark at the start of each event, so an event of some seconds shows in the full day.
+            # A bar out of the time axis does not show, so the mark and the bar stop at the limits of the day.
             'symbol': 'rect',
             'symbolSize': [3, LANE_HEIGHT - 10],
             'itemStyle': {'color': color_of[name]},
-            'data': [{'name': tooltips[name, d.start], 'value': [local(d.start), name]} for d in found],
+            'data': [{'name': tooltips[name, d.start], 'value': [local(max(d.start, day_start)), name]} for d in found],
             'markLine': {
                 'tooltip': EVENT_TOOLTIP,
                 'emphasis': {'disabled': True},
@@ -240,8 +241,8 @@ def chart_options(
                 'lineStyle': {'color': color_of[name], 'type': 'solid', 'width': LANE_HEIGHT - 10},
                 'data': [
                     [
-                        {'name': tooltips[name, d.start], 'coord': [local(d.start), name]},
-                        {'coord': [local(d.end), name]},
+                        {'name': tooltips[name, d.start], 'coord': [local(max(d.start, day_start)), name]},
+                        {'coord': [local(min(d.end, day_end)), name]},
                     ]
                     for d in found
                 ],
