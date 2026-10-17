@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import time
 from dataclasses import replace
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -727,6 +728,35 @@ async def test_navigation(found: list[tuple[Any, ...]]) -> None:
         await wait_for_calls(found, 5)
 
     assert [call[2] for call in found[1:]] == [date(2026, 9, 14), DAY, date(2026, 9, 14), datetime.now(TZ).date()]
+
+
+@pytest.mark.parametrize('fails', [False, True])
+async def test_a_slow_load_does_not_replace_the_selected_day(
+    found: list[tuple[Any, ...]], monkeypatch: pytest.MonkeyPatch, charge_w: float, fails: bool
+) -> None:
+    slow = DAY - timedelta(days=1)
+
+    def fake_find(settings: Any, source: Any, day: date) -> list[SearchResult]:
+        if day == slow:
+            time.sleep(0.5)
+            if fails:
+                raise search.NoDataError('no data')
+        return [make_result(charge_w)]
+
+    monkeypatch.setattr(search, 'find_day', fake_find)
+    async with user_simulation(app.root) as user:
+        await user.open('/')
+        await user.should_see('Click a row to zoom the chart')
+        [date_input] = user.find(ui.date).elements
+
+        # The user selects a day, and then a second day before the search of the first day ends.
+        date_input.value = slow.isoformat()
+        await asyncio.sleep(0.1)
+        date_input.value = DAY.isoformat()
+        await asyncio.sleep(1)
+        await user.should_see(f'{DAY:%A}, {DAY.day} {DAY:%B %Y}')
+        # The result or the error of the first day does not show.
+        await user.should_not_see(f'{slow:%A}, {slow.day} {slow:%B %Y}')
 
 
 async def test_date_that_is_javascript(found: list[tuple[Any, ...]]) -> None:
