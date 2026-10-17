@@ -9,7 +9,7 @@ from nicegui import ui
 
 from homebuddy.config import Settings
 from homebuddy.result import SearchResult
-from homebuddy.ui.chart import FULL_DAY_ZOOM, chart_height, chart_options, event_zoom, line_windows
+from homebuddy.ui.chart import FULL_DAY_ZOOM, chart_height, chart_options, event_zoom, tab_lines
 from homebuddy.ui.debug import table_lines
 from homebuddy.ui.events import COPY_CELL, copy_columns, copy_row, event_columns, event_rows
 from homebuddy.ui.names import detector_name, tab_name
@@ -29,7 +29,7 @@ def show_card(
             ui.label(f'{day:%A}, {day.day} {day:%B %Y}').classes('hb-muted text-sm')
             ui.space()
             full_day_button = ui.button('Full day', color=None).props('flat dense no-caps').classes('hb-pill')
-        options = chart_options(result, settings.date_format, dark, line_windows(result, settings), narrow)
+        options = chart_options(result, settings.date_format, dark, tab_lines(result, settings), narrow)
         chart = ui.echart(options).classes('w-full').style(f'height: {chart_height(result, narrow)}px')
     full_day_button.on_click(lambda: chart.run_chart_method('dispatchAction', FULL_DAY_ZOOM))
     return chart, ui.column().classes('w-full gap-4')

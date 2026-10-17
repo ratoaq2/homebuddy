@@ -31,8 +31,8 @@ from homebuddy.ui.chart import (  # noqa: E402
     chart_options,
     event_tooltips,
     event_zoom,
-    line_windows,
     smoothed,
+    tab_lines,
 )
 from homebuddy.ui.debug import table_lines  # noqa: E402
 from homebuddy.ui.events import copy_columns, duration_text, event_columns, event_rows  # noqa: E402
@@ -167,6 +167,15 @@ def test_chart_options_has_a_line_for_each_sensor_of_the_tab(charge_w: float) ->
     assert 'markLine' not in options['series'][1]
     assert ['areaStyle' in s for s in options['series'][:3]] == [False, True, True]
     assert [s['name'] for s in options['series'][3:]] == ['ev']
+
+    # A line with ``name`` has this name in the legend. A line without it keeps the name of its sensor.
+    entries = [
+        TabSensor(sensor='sensor.p', name='Grid'),
+        TabSensor(sensor='sensor.solar'),
+        TabSensor(sensor='sensor.solar', name='Solar panels'),
+    ]
+    options = chart_options(result, DATE_FORMAT, entries=entries)
+    assert options['legend']['data'] == ['Grid', 'Solar', 'Solar panels']
 
 
 def test_chart_options_theme(charge_w: float) -> None:
@@ -1005,10 +1014,11 @@ def test_smoothed() -> None:
 def test_a_line_with_smooth_shows_averages(charge_w: float) -> None:
     result = make_result(charge_w)
     plain = chart_options(result, DATE_FORMAT)['series'][0]
-    smooth = chart_options(result, DATE_FORMAT, smooth=[timedelta(minutes=10)])['series'][0]
+    entry = TabSensor(sensor='sensor.p', smooth=timedelta(minutes=10))
+    smooth = chart_options(result, DATE_FORMAT, entries=[entry])['series'][0]
     assert (plain['step'], smooth['step']) == ('end', False)
     assert len(smooth['data']) < len(plain['data'])
-    # The settings give the window of each line of the tab of a result.
-    tab = Tab(sensors=(TabSensor(sensor='sensor.p', smooth=timedelta(minutes=10)), TabSensor(sensor='sensor.q')))
+    # The settings give the keys of each line of the tab of a result.
+    tab = Tab(sensors=(entry, TabSensor(sensor='sensor.q')))
     settings = SETTINGS.model_copy(update={'tabs': {result.tab: tab}})
-    assert line_windows(result, settings) == [timedelta(minutes=10), None]
+    assert tab_lines(result, settings) == tab.sensors

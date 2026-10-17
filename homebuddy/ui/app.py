@@ -18,7 +18,7 @@ from homebuddy.homeassistant import HomeAssistant
 from homebuddy.model import SensorError
 from homebuddy.result import SearchResult
 from homebuddy.ui.card import show_card, show_details
-from homebuddy.ui.chart import chart_height, chart_options, line_windows
+from homebuddy.ui.chart import chart_height, chart_options, tab_lines
 from homebuddy.ui.names import tab_name
 from homebuddy.ui.theme import NARROW, PAGE_CSS, PRIMARY
 
@@ -159,8 +159,8 @@ def root(config_path: str | None = None) -> None:
             return
         # Update the chart in place, so the zoom stays. The number of lanes can change.
         target.options.clear()
-        windows = line_windows(result, loaded)
-        target.options.update(chart_options(result, loaded.date_format, bool(dark.value), windows, narrow))
+        entries = tab_lines(result, loaded)
+        target.options.update(chart_options(result, loaded.date_format, bool(dark.value), entries, narrow))
         target.style(f'height: {chart_height(result, narrow)}px')
         target.update()
 

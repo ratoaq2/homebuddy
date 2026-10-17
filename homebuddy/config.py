@@ -35,6 +35,8 @@ class TabSensor(BaseModel):
     # The chart shows the average of the sensor in each window of this time. None is each value of the sensor.
     # The detectors and the values of the events always use each value.
     smooth: Duration | None = None
+    # The name of the line in the legend of the chart. None is the name of the sensor in Home Assistant.
+    name: str | None = None
 
 
 def _tab_sensor(value: object) -> object:

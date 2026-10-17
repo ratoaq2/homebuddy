@@ -32,6 +32,7 @@ tabs:
     # have its class and its unit, for example: [sensor.grid_power, sensor.solar_power]
     # An entry can be a map. `smooth` is a duration: the line shows the average of the sensor in each
     # window of this time, for example: [sensor.grid_power, {sensor: sensor.solar_power, smooth: {minutes: 5}}]
+    # `name` is the name of the line in the legend, for example: {sensor: sensor.solar_power, name: Solar}
     sensors: [sensor.grid_power]
     # hidden_detectors: [heater]
   # discharge:

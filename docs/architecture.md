@@ -106,6 +106,7 @@ the lines are fixed: blue, amber, green.
 
 - One axis keeps the lines comparable. Two scales in one chart give a wrong picture.
 - An entry with only an entity id is the minimum. Home Assistant already has a name for each sensor.
+  `name` of an entry is for a name that is long or not clear in Home Assistant. It changes only the legend.
 - A key of one line is a key of its entry: an entry can be a map with `sensor` and, for example,
   `smooth`. The user sees the sensor and its keys in one place.
 - `smooth` changes only the line of the chart. A detector that reads averages finds different events,

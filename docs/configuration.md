@@ -114,7 +114,7 @@ A sensor is an entity id of Home Assistant, for example `sensor.grid_power`. A d
 
 | Key | Meaning |
 | --- | --- |
-| `sensors` | Necessary. The sensors of the chart, in a list. Each sensor is a line. The first sensor is the sensor of the tab. An entry can have keys: see [A smooth line](#a-smooth-line). |
+| `sensors` | Necessary. The sensors of the chart, in a list. Each sensor is a line. The first sensor is the sensor of the tab. An entry can have keys: see [The keys of a line](#the-keys-of-a-line). |
 | `name` | Optional. Without it, the tab shows the name of the sensor from Home Assistant. |
 | `detectors` | Optional. The names of the detectors that the tab shows, in the order of the lanes. |
 | `hidden_detectors` | Optional. The names of the detectors whose rows the events table does not show when the page opens. |
@@ -166,14 +166,31 @@ tabs:
 - The lines have one axis. Each sensor must have the class and the unit of the first one. A different sensor
   gives a message with the path of its entry.
 
-### A smooth line
+### The keys of a line
 
 An entry of `sensors` is an entity id, or a map with these keys:
 
 | Key | Meaning |
 | --- | --- |
 | `sensor` | Necessary. The entity id. |
+| `name` | Optional. The name of the line in the legend of the chart. Without it, the line has the name of the sensor in Home Assistant. A chart with one line has no legend. |
 | `smooth` | Optional. A duration. The line shows the average of the sensor in each window of this time. |
+
+Use `name` when the name of a sensor in Home Assistant is long or not clear:
+
+```yaml
+tabs:
+  power:
+    sensors:
+      - sensor: sensor.grid_power
+        name: Grid
+      - sensor: sensor.solar_power
+        name: Solar
+```
+
+`name` changes only the legend. The title of the tab is the `name` of the tab, or the name of its first
+sensor in Home Assistant.
+
 
 Use `smooth` for a sensor with many fast changes, for example the power of the solar panels:
 

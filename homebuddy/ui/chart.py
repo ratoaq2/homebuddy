@@ -9,7 +9,7 @@ from html import escape
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from homebuddy.config import Settings
+from homebuddy.config import Settings, TabSensor
 from homebuddy.model import Event, Point
 from homebuddy.result import Row, SearchResult
 from homebuddy.ui.events import column_titles, event_texts
@@ -62,9 +62,9 @@ def event_tooltips(result: SearchResult, date_format: str) -> dict[tuple[str, da
     return tooltips
 
 
-def line_windows(result: SearchResult, settings: Settings) -> list[timedelta | None]:
-    """``smooth`` of each sensor of the tab of a result, in the order of the lines of the chart."""
-    return [entry.smooth for entry in settings.tabs[result.tab].sensors] if result.tab in settings.tabs else []
+def tab_lines(result: SearchResult, settings: Settings) -> Sequence[TabSensor]:
+    """The entries of ``sensors`` of the tab of a result, in the order of the lines of the chart."""
+    return settings.tabs[result.tab].sensors if result.tab in settings.tabs else ()
 
 
 def chart_height(result: SearchResult, narrow: bool = False) -> int:
@@ -102,7 +102,7 @@ def chart_options(
     result: SearchResult,
     date_format: str,
     dark: bool = False,
-    smooth: Sequence[timedelta | None] = (),
+    entries: Sequence[TabSensor] = (),
     narrow: bool = False,
 ) -> dict[str, Any]:
     """ECharts options: the line of the sensor for the day with its levels, and one lane for each detector with events.
@@ -112,8 +112,9 @@ def chart_options(
     the right is the number of its events, and their energy for a power sensor. A bar shows the values of its
     event in a tooltip, with the label of the event.
     Each other sensor of the tab is one more line, with the same axis. The chart then has a legend.
-    ``smooth`` has the window of each line of the tab, in the order of its sensors. A line with a window
-    shows the average of its sensor in each window. None, or no entry, is each value of the sensor.
+    ``entries`` has the keys of each line of the tab, in the order of its sensors. A line with ``smooth`` shows
+    the average of its sensor in each window. A line with ``name`` has this name in the legend. Without an
+    entry, a line shows each value of its sensor, with the name of the sensor.
     ``narrow`` is for the screen of a phone. The margins are small, so the line has the width of the screen.
     A lane then has two rows: the name of the detector and its numbers, then the bars.
     """
@@ -129,7 +130,9 @@ def chart_options(
     day_start = result.start.astimezone(tz).replace(hour=0, minute=0, second=0, microsecond=0)
     day_end = datetime.combine(day_start.date() + timedelta(days=1), day_start.time(), tzinfo=tz)
 
-    windows = [*smooth, *[None] * (1 + len(result.lines))]
+    keys: list[TabSensor | None] = [*entries, *[None] * (1 + len(result.lines))]
+    windows = [entry.smooth if entry else None for entry in keys]
+    names = [entry.name if entry else None for entry in keys]
 
     def line(name: str, points: list[Point], color: str, window: timedelta | None) -> dict[str, Any]:
         """The series of the line of a sensor. A line with a window shows averages, so it has no steps."""
@@ -163,19 +166,21 @@ def chart_options(
             ],
         }
 
-    # With more than one line, each line has the name of its sensor, and the chart has a legend.
+    # With more than one line, each line has its name or the name of its sensor, and the chart has a legend.
     # The lines after the first one have their own colors, in the order of the file. Each one has a light
     # area and is behind the first line, so the first line stays clear.
     more = result.lines
-    main_name = (result.sensor_name or result.sensor) if more else tab_name(result)
+    main_name = (names[0] or result.sensor_name or result.sensor) if more else tab_name(result)
     palette = colors['lines']
     more_lines = [
         {
-            **line(other.name or other.sensor, other.points, color, window),
+            **line(name or other.name or other.sensor, other.points, color, window),
             'areaStyle': {'color': color, 'opacity': 0.18},
             'z': 1,
         }
-        for other, color, window in zip(more, palette + palette[-1:] * len(more), windows[1:], strict=False)
+        for other, color, window, name in zip(
+            more, palette + palette[-1:] * len(more), windows[1:], names[1:], strict=False
+        )
     ]
     color_of = detector_colors(result, dark)
     events = lane_events(result)

@@ -53,7 +53,7 @@ A tab whose sensor has no numbers in the day does not show.
   from Home Assistant.
 - The levels of the sensor are horizontal lines in the chart, with their values. A tab of the sensor that an
   `level` detector reads shows the baseline.
-- A line of a sensor with `smooth` shows averages. See [A smooth line](configuration.md#a-smooth-line).
+- A line of a sensor with `smooth` shows averages. See [The keys of a line](configuration.md#the-keys-of-a-line).
 - Move the pointer on the chart to see the value of the sensor at that time.
 - Use the mouse wheel or the slider to zoom. Click Full day to see the full day again.
 
