@@ -26,6 +26,15 @@ STATIC = Path(__file__).parent / 'static'
 REFRESH_SECONDS = 60
 DATE_STYLE = "{weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC'}"
 SYSTEM_DARK = '(prefers-color-scheme: dark)'
+# The page in a frame, for example a webpage card of Home Assistant, has a compact header. The URL parameter
+# ``embed=1`` or ``embed=0`` overrides the check. The script is in the head, so the class is there before the
+# browser shows the page.
+EMBED_JS = """
+const embed = new URLSearchParams(location.search).get('embed');
+if (embed === '1' || (embed !== '0' && window.self !== window.top)) {
+    document.documentElement.classList.add('hb-embed');
+}
+"""
 
 
 def media_js(query: str, event: str) -> str:
@@ -58,6 +67,7 @@ def root(config_path: str | None = None) -> None:
     ui.add_css(PAGE_CSS)
     # The manifest lets a phone install the page as an app. The browser needs HTTPS for that.
     ui.add_head_html('<link rel="manifest" href="/static/manifest.webmanifest">')
+    ui.add_head_html(f'<script>{EMBED_JS}</script>')
     # The settings of the page. They are None for a wrong configuration file: ``errors`` then has its errors.
     loaded: config.Settings | None = None
     errors = ''
@@ -76,55 +86,60 @@ def root(config_path: str | None = None) -> None:
     # The time zone of the file. Without it, the first load gets the time zone of Home Assistant.
     tz_name = (loaded.timezone if loaded else None) or ''
 
-    with ui.header(elevated=False).classes('hb-header items-center gap-1 px-6'):
-        ui.label('homebuddy').classes('text-lg font-semibold')
-        ui.label('Detectors').classes('hb-muted text-sm ml-2')
-        ui.space()
-        # The buttons of the day. On a narrow screen, they are a second row of the header.
-        with ui.row().classes('hb-days items-center gap-1 no-wrap'):
-            prev_button = (
-                ui.button(icon='chevron_left', color=None)
+    # The header is one row: the logo at the left edge, the tabs and the buttons of the day with the width of the
+    # cards, and the buttons of the settings and the theme at the right edge.
+    with ui.header(elevated=False).classes('hb-header'), ui.element().classes('hb-bar'):
+        # The CSS shows the logo of the theme of the page.
+        with ui.element().classes('hb-logo'):
+            for theme in ('light', 'dark'):
+                ui.element('img').props(f'src=/static/logo-{theme}.png alt=homebuddy').classes(f'hb-logo-{theme}')
+        with ui.row().classes('hb-main items-center gap-1'):
+            # The tabs of the configuration file that have data, when there is more than one. The row of tabs
+            # scrolls when the tabs do not fit.
+            tabs = ui.tabs().props('dense no-caps align=left outside-arrows mobile-arrows').classes('hb-tabs')
+            tabs.set_visibility(False)
+            with ui.row().classes('hb-days items-center gap-1 no-wrap'):
+                prev_button = (
+                    ui.button(icon='chevron_left', color=None)
+                    .props('flat round dense')
+                    .mark('prev')
+                    .tooltip('Previous day')
+                )
+                # The button shows the day in words. A click opens the calendar.
+                with ui.button(icon='event', color=None).props('flat dense no-caps').classes('hb-pill') as date_button:
+                    with ui.menu() as date_menu:
+                        date_picker = ui.date(value=today(tz_name).isoformat(), on_change=date_menu.close)
+
+                def show_date() -> None:
+                    # The browser writes the day in the format of its language.
+                    day = f'new Date({json.dumps(date_picker.value)}).toLocaleDateString(undefined, {DATE_STYLE})'
+                    date_button.props(remove='label')
+                    date_button.props[':label'] = day if date_picker.value else 'null'
+
+                date_picker.on_value_change(show_date)
+                show_date()
+                next_button = (
+                    ui.button(icon='chevron_right', color=None)
+                    .props('flat round dense')
+                    .mark('next')
+                    .tooltip('Next day')
+                )
+                today_button = ui.button('Today', color=None).props('flat dense no-caps').classes('hb-pill')
+                reload_button = (
+                    ui.button(icon='refresh', color=None).props('flat round dense').mark('reload').tooltip('Load again')
+                )
+        with ui.row().classes('hb-tools items-center gap-1 no-wrap'):
+            settings_button = ui.button(icon='tune', color=None).props('flat round dense').tooltip('Settings')
+            with settings_button, ui.menu(), ui.column().classes('p-4 gap-2 w-72'):
+                ui.label('Settings').classes('font-semibold')
+                debug_input = ui.switch('Show debug data')
+            theme_button = (
+                ui.button(icon='light_mode' if dark.value else 'dark_mode', color=None)
                 .props('flat round dense')
-                .mark('prev')
-                .tooltip('Previous day')
+                .mark('theme')
+                .tooltip('Dark or light theme')
             )
-            # The button shows the day in words. A click opens the calendar.
-            with ui.button(icon='event', color=None).props('flat dense no-caps').classes('hb-pill') as date_button:
-                with ui.menu() as date_menu:
-                    date_picker = ui.date(value=today(tz_name).isoformat(), on_change=date_menu.close)
 
-            def show_date() -> None:
-                # The browser writes the day in the format of its language.
-                day = f'new Date({json.dumps(date_picker.value)}).toLocaleDateString(undefined, {DATE_STYLE})'
-                date_button.props(remove='label')
-                date_button.props[':label'] = day if date_picker.value else 'null'
-
-            date_picker.on_value_change(show_date)
-            show_date()
-            next_button = (
-                ui.button(icon='chevron_right', color=None).props('flat round dense').mark('next').tooltip('Next day')
-            )
-            today_button = ui.button('Today', color=None).props('flat dense no-caps').classes('hb-pill')
-            reload_button = (
-                ui.button(icon='refresh', color=None).props('flat round dense').mark('reload').tooltip('Load again')
-            )
-        ui.space()
-        settings_button = ui.button(icon='tune', color=None).props('flat round dense').tooltip('Settings')
-        with settings_button, ui.menu(), ui.column().classes('p-4 gap-2 w-72'):
-            ui.label('Settings').classes('font-semibold')
-            debug_input = ui.switch('Show debug data')
-        theme_button = (
-            ui.button(icon='light_mode' if dark.value else 'dark_mode', color=None)
-            .props('flat round dense')
-            .mark('theme')
-            .tooltip('Dark or light theme')
-        )
-
-    # The tabs of the configuration file that have data, when there is more than one. The row of tabs scrolls
-    # when the tabs do not fit.
-    tabs = ui.tabs().props('dense no-caps align=left outside-arrows mobile-arrows')
-    tabs.classes('w-full max-w-screen-2xl mx-auto')
-    tabs.set_visibility(False)
     results = ui.column().classes('w-full max-w-screen-2xl mx-auto gap-4')
     # The chart and the details of the selected tab
     card: tuple[ui.echart, ui.element] | None = None

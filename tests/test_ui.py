@@ -732,6 +732,20 @@ async def test_date_that_is_javascript(found: list[tuple[Any, ...]]) -> None:
         await user.should_see('Invalid isoformat string')
 
 
+async def test_page_in_a_frame_hides_the_logo_and_the_buttons_of_the_settings(
+    found: list[tuple[Any, ...]],
+) -> None:
+    async with user_simulation(app.root) as user:
+        await user.open('/')
+        await user.should_see('Click a row to zoom the chart')
+        # The script adds the class ``hb-embed`` before the browser shows the page. The CSS of that class hides
+        # the elements of these classes.
+        assert user.client is not None
+        assert f'<script>{app.EMBED_JS}</script>' in user.client.head_html
+        classes = {name for element in user.find(ui.element).elements for name in element.classes}
+        assert {'hb-logo', 'hb-tools', 'hb-days'} <= classes
+
+
 async def test_refresh_only_on_today(found: list[tuple[Any, ...]]) -> None:
     async with user_simulation(app.root) as user:
         await user.open('/')

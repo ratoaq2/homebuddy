@@ -105,12 +105,33 @@ body {
 .hb-filter-off { opacity: 0.45; }
 .hb-filter-off .hb-filter-name { text-decoration: line-through; }
 """
-# On a narrow screen, the buttons of the day are a second row of the header. The chart gets the space of the
-# margins.
+# The header has three columns. The middle column has the width of the cards, so the tabs and the buttons of the
+# day have the edges of the cards. The tabs take the free space of the middle column. In a frame, the logo and the
+# buttons of the settings and the theme do not show, and the header has the background of the page, because
+# Home Assistant has its own bar above the frame.
+PAGE_CSS += """
+.hb-bar { display: grid; grid-template-columns: 1fr minmax(0, 1536px) 1fr; align-items: center; width: 100%; }
+.hb-logo { grid-column: 1; justify-self: start; }
+.hb-logo img { height: 28px; max-width: none; margin-right: 16px; }
+.hb-logo-dark, body.body--dark .hb-logo-light { display: none; }
+body.body--dark .hb-logo-dark { display: inline; }
+.hb-main { grid-column: 2; flex-wrap: nowrap; }
+.hb-tabs { flex: 1 1 0; min-width: 0; }
+.hb-days { margin-left: auto; }
+.hb-tools { grid-column: 3; justify-self: end; margin-left: 16px; }
+html.hb-embed .hb-logo, html.hb-embed .hb-tools { display: none !important; }
+html.hb-embed .hb-header { background: var(--hb-plane) !important; border-bottom: none; }
+"""
+# On a narrow screen, the logo and the buttons of the settings and the theme are the first row of the header, the
+# buttons of the day are the second row, and the tabs are the third row. The chart gets the space of the margins.
 PAGE_CSS += f"""
 @media {NARROW} {{
     .hb-header {{ padding: 4px 8px !important; }}
+    .hb-bar {{ grid-template-columns: 1fr auto; }}
+    .hb-main {{ grid-column: 1 / -1; grid-row: 2; flex-wrap: wrap; }}
+    .hb-tools {{ grid-column: 2; grid-row: 1; }}
     .hb-days {{ order: 1; width: 100%; justify-content: center; }}
+    .hb-tabs {{ order: 2; flex: none; width: 100%; }}
     .nicegui-content {{ padding: 8px !important; }}
     .hb-card {{ padding: 12px 8px !important; }}
 }}

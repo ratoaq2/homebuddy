@@ -38,7 +38,7 @@ The time zone comes from `timezone` in the configuration file, or from Home Assi
 ## The tabs
 
 The page shows one tab of the configuration file at a time. When the file has two or more tabs with data in
-the day, the page has a row of tabs below the header. Click a tab to see it. The selected tab stays when you
+the day, the header has a row of tabs. Click a tab to see it. The selected tab stays when you
 change the day.
 
 A tab and the title of its chart show the `name` of the tab, or the name of its sensor from Home Assistant, or
@@ -147,6 +147,15 @@ trusts. See [Put homebuddy behind a reverse proxy](docker.md#put-homebuddy-behin
 
 Open the page in Chrome, open the menu and select "Add to Home screen", then "Install". The icon opens
 homebuddy in its own window.
+
+## Show the page in Home Assistant
+
+Add a webpage card to a dashboard of Home Assistant, with the URL of homebuddy. When Home Assistant uses HTTPS,
+homebuddy must also use HTTPS. See [Put homebuddy behind a reverse proxy](docker.md#put-homebuddy-behind-a-reverse-proxy).
+
+In a frame, the header has only the tabs and the day buttons, on the background of the page. The logo, the
+settings button and the theme button do not show. Add `?embed=1` to the URL to see this header without a
+frame, or `?embed=0` to see the full header in a frame.
 
 ## Security
 
