@@ -344,7 +344,8 @@ def root(config_path: str | None = None) -> None:
     theme_button.on_click(lambda: set_dark(not dark.value))
     date_picker.on_value_change(load)
     tabs.on_value_change(lambda: show())
-    debug_input.on_value_change(load)
+    # The result has the debug data, so the switch draws the tab again without a search. The chart keeps its zoom.
+    debug_input.on_value_change(lambda: show(keep_chart=True))
     # The timer is active only when the page shows today, so a day in the past stays.
     refresh_timer = ui.timer(REFRESH_SECONDS, refresh, active=False).mark('refresh')
     ui.timer(0, load, once=True)

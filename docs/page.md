@@ -131,7 +131,8 @@ Some detector types know the value, so there is no estimate:
 
 ## Debug data
 
-The settings button at the top right has "Show debug data". It loads the page again.
+The settings button at the top right has "Show debug data". The switch does not load the data again, and the
+chart keeps its zoom.
 
 The page then shows the debug data of each detector, on the card of each tab that shows the detector. The
 `level` detector shows the data points of each run. A `pulse` detector shows each candidate with the result of

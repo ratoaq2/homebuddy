@@ -512,7 +512,13 @@ async def test_page_opens_on_today(found: list[tuple[Any, ...]]) -> None:
 async def test_page_shows_the_runs_and_the_candidates(
     found: list[tuple[Any, ...]], monkeypatch: pytest.MonkeyPatch, charge_w: float
 ) -> None:
-    monkeypatch.setattr(search, 'find_day', lambda *args: [make_pump_result(charge_w)])
+    calls: list[tuple[Any, ...]] = []
+
+    def find(*args: Any) -> list[SearchResult]:
+        calls.append(args)
+        return [make_pump_result(charge_w)]
+
+    monkeypatch.setattr(search, 'find_day', find)
     async with user_simulation(app.root) as user:
         await user.open('/')
         await user.should_see('Click a row to zoom the chart')
@@ -532,9 +538,13 @@ async def test_page_shows_the_runs_and_the_candidates(
         user.find(marker='filter-well_pump').click()
         assert [row['detector'] for row in table.rows] == ['ev', 'well_pump']
 
-        # The switch loads the page again.
+        # The switch shows the debug data without a new search. The chart stays, so its zoom stays.
+        searches = len(calls)
+        [chart] = user.find(ui.echart).elements
         user.find(ui.switch).click()
         await user.should_see('Debug data of well_pump')
+        assert len(calls) == searches
+        assert user.find(ui.echart).elements == {chart}
         await user.should_see('1 candidates, 1 accepted')
         await user.should_see('Debug data of ev')
         await user.should_see('Run 1: 121 data points')
