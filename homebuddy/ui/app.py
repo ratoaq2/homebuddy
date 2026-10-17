@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import urllib.error
+from contextlib import suppress
 from datetime import date, datetime, timedelta
 from functools import cache
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from dotenv import find_dotenv, load_dotenv
-from nicegui import app, ui
+from nicegui import app, background_tasks, ui
 from nicegui import run as nicegui_run
 
 from homebuddy import config, search
@@ -24,6 +26,9 @@ from homebuddy.ui.theme import NARROW, PAGE_CSS, PRIMARY
 
 STATIC = Path(__file__).parent / 'static'
 REFRESH_SECONDS = 60
+# The search of the day before waits this time, so the page first sends the shown day to the browser. The two use
+# the same process.
+LOAD_BEFORE_SECONDS = 1
 DATE_STYLE = "{weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC'}"
 SYSTEM_DARK = '(prefers-color-scheme: dark)'
 # The page in a frame, for example a webpage card of Home Assistant, has a compact header. The URL parameter
@@ -59,6 +64,16 @@ def today(tz_name: str) -> date:
         return datetime.now(ZoneInfo(tz_name)).date()
     except (ZoneInfoNotFoundError, ValueError):
         return date.today()
+
+
+async def load_before(settings: config.Settings, source: HomeAssistant, day: date) -> None:
+    """Search the day before ``day`` in the background, so the client keeps its history. See ``HomeAssistant.history``.
+
+    The page does not use the result. The load of that day reports an error.
+    """
+    await asyncio.sleep(LOAD_BEFORE_SECONDS)
+    with suppress(search.NoDataError, SensorError, OSError):
+        await nicegui_run.io_bound(search.find_day, settings, source, day - timedelta(days=1))
 
 
 def root(config_path: str | None = None) -> None:
@@ -278,6 +293,9 @@ def root(config_path: str | None = None) -> None:
         if found is None or not selected_day():  # the app is shutting down, or a newer load
             return
 
+        if day != shown_day:
+            # A new day. The next click is often "Previous day". A refresh of the day does not search the day before.
+            background_tasks.create(load_before(settings, source, day), name='load_before')
         names = {result.tab: tab_name(result) for result in found}
         same = bool(card) and day == shown_day and names == {result.tab: tab_name(result) for result in shown}
         shown, shown_day = found, day

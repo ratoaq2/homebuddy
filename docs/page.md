@@ -32,7 +32,8 @@ today. A day in the past that you select stays. "Load again" reads the file and 
 
 homebuddy keeps the history of the last 10 days in the past that it loaded, so a second visit of a day is fast.
 The history of a day includes 12 hours after midnight. Before noon, homebuddy does not keep the history of
-yesterday yet.
+yesterday yet. When the page shows a new day, it loads the day before in the background, so "Previous day" is
+also fast.
 
 An event that crosses midnight shows on the two days, with its real start and end.
 

@@ -441,6 +441,8 @@ def test_event_rows_of_a_ramp() -> None:
     assert [column['label'] for column in event_columns(result)][-3:] == ['Start (°C)', 'Peak (°C)', '']
 
 
+# The search of the day before in the background. The ``found`` fixture replaces it.
+LOAD_BEFORE = app.load_before
 # The file of the page tests: Home Assistant and one detector.
 FILE = (
     f'home_assistant:\n  url: http://ha\ntimezone: Europe/Berlin\n{TABS_YAML}'
@@ -450,10 +452,18 @@ FILE = (
 
 @pytest.fixture
 def found(monkeypatch: pytest.MonkeyPatch, charge_w: float) -> list[tuple[Any, ...]]:
-    """Home Assistant settings, and a fake ``find_day`` that records its calls."""
+    """Home Assistant settings, and a fake ``find_day`` that records its calls.
+
+    The page does not search the day before in the background, so the calls of a test have a fixed order.
+    """
     Path('homebuddy.yml').write_text(FILE)
     monkeypatch.setenv('HA_TOKEN', 'tok')
     calls: list[tuple[Any, ...]] = []
+
+    async def no_load_before(*args: Any) -> None:
+        pass
+
+    monkeypatch.setattr(app, 'load_before', no_load_before)
 
     def fake_find(*args: Any) -> list[SearchResult]:
         calls.append(args)
@@ -757,6 +767,35 @@ async def test_a_slow_load_does_not_replace_the_selected_day(
         await user.should_see(f'{DAY:%A}, {DAY.day} {DAY:%B %Y}')
         # The result or the error of the first day does not show.
         await user.should_not_see(f'{slow:%A}, {slow.day} {slow:%B %Y}')
+
+
+async def test_page_searches_the_day_before_in_the_background(
+    found: list[tuple[Any, ...]], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(app, 'load_before', LOAD_BEFORE)
+    monkeypatch.setattr(app, 'LOAD_BEFORE_SECONDS', 0)
+    today = datetime.now(TZ).date()
+    async with user_simulation(app.root) as user:
+        await user.open('/')
+        await wait_for_calls(found, 2)
+        assert [call[2] for call in found] == [today, today - timedelta(days=1)]
+
+        # A refresh of today does not search the day before again.
+        [timer] = user.find(kind=ui.timer, marker='refresh').elements
+        assert timer.callback is not None
+        await timer.callback()
+        await wait_for_calls(found, 3)
+        await asyncio.sleep(0.2)
+        assert len(found) == 3
+
+        # The day before has no data. The page does not show the error of the search in the background.
+        [date_input] = user.find(ui.date).elements
+        date_input.value = DAY.isoformat()
+        await wait_for_calls(found, 5)
+        assert [call[2] for call in found[3:]] == [DAY, DAY - timedelta(days=1)]
+        await asyncio.sleep(0.2)
+        await user.should_see('Click a row to zoom the chart')
+        await user.should_not_see('No data for')
 
 
 async def test_date_that_is_javascript(found: list[tuple[Any, ...]]) -> None:
