@@ -27,7 +27,8 @@ The page opens on today. Use the previous day and next day buttons, the date but
 different day.
 
 When the page shows today, it loads new data each 60 seconds. This load does not read the configuration file
-again. "Load again" reads the file and loads the data.
+again. At midnight in the time zone of the home, the page goes to the new day, so a wall display always shows
+today. A day in the past that you select stays. "Load again" reads the file and loads the data.
 
 An event that crosses midnight shows on the two days, with its real start and end.
 

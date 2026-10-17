@@ -303,6 +303,13 @@ def root(config_path: str | None = None) -> None:
     def go_today() -> None:
         date_picker.value = today(tz_name).isoformat()
 
+    async def refresh() -> None:
+        """Load today again. After midnight, the page goes to the new day, so a wall display shows today."""
+        if date_picker.value == today(tz_name).isoformat():
+            await load()
+        else:
+            go_today()  # the change of the day loads the page
+
     prev_button.on_click(lambda: shift(-1))
     next_button.on_click(lambda: shift(1))
     today_button.on_click(go_today)
@@ -311,7 +318,8 @@ def root(config_path: str | None = None) -> None:
     date_picker.on_value_change(load)
     tabs.on_value_change(lambda: show())
     debug_input.on_value_change(load)
-    refresh_timer = ui.timer(REFRESH_SECONDS, load, active=False).mark('refresh')
+    # The timer is active only when the page shows today, so a day in the past stays.
+    refresh_timer = ui.timer(REFRESH_SECONDS, refresh, active=False).mark('refresh')
     ui.timer(0, load, once=True)
     ui.on('narrow', lambda e: set_narrow(bool(e.args)))
     ui.timer(0, lambda: ui.run_javascript(media_js(NARROW, 'narrow')), once=True)

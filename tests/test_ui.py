@@ -761,6 +761,24 @@ async def test_refresh_only_on_today(found: list[tuple[Any, ...]]) -> None:
         assert not timer.active
 
 
+async def test_refresh_goes_to_the_new_day_at_midnight(
+    found: list[tuple[Any, ...]], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async with user_simulation(app.root) as user:
+        await user.open('/')
+        await wait_for_calls(found, 1)
+        [timer] = user.find(kind=ui.timer, marker='refresh').elements
+        assert timer.callback is not None
+
+        # Midnight: today is the next day.
+        tomorrow = datetime.now(TZ).date() + timedelta(days=1)
+        monkeypatch.setattr(app, 'today', lambda tz_name: tomorrow)
+        await timer.callback()
+        await wait_for_calls(found, 2)
+        assert found[1][2] == tomorrow
+        assert timer.active
+
+
 async def test_load_again_keeps_the_chart(found: list[tuple[Any, ...]]) -> None:
     async with user_simulation(app.root) as user:
         await user.open('/')
