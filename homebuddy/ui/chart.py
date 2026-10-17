@@ -136,6 +136,9 @@ def chart_options(
 
     def line(name: str, points: list[Point], color: str, window: timedelta | None) -> dict[str, Any]:
         """The series of the line of a sensor. A line with a window shows averages, so it has no steps."""
+        # Home Assistant gives only the changes, so the last value continues until the end of the search.
+        if points and points[-1][0] < result.end:
+            points = [*points, (result.end, points[-1][1])]
         if window:
             points = smoothed(points, window)
 
@@ -147,12 +150,14 @@ def chart_options(
         # The tooltip shows each point at the time of the mouse, so each point has its own time. A line with a point
         # at midnight has no second point there.
         start = [] if inside and inside[0][0] == day_start else [(day_start, held(day_start))]
-        # Without a point after the day, the line stops at its last point: the next point has no value.
+        # Without a point after the day, the line stops at the end of the search: the next point has no value.
         # The mini graph of the zoom slider draws only some of the points, so many such points stop it. They are
-        # spread in the time after the last point.
+        # spread in the time after the last point. A step goes to the next point, also without a value, so the
+        # first one is one second after the last point.
         end = held(day_end) if points and points[-1][0] >= day_end else None
         last, count = (inside[-1][0], len(inside) // 100 + 1) if end is None and inside else (day_end, 0)
-        stop = dict.fromkeys(local(last + (day_end - last) * (i + 1) / (count + 1)) for i in range(count))
+        gap = timedelta(seconds=1)
+        stop = dict.fromkeys(local(last + gap + (day_end - last - gap) * i / count) for i in range(count))
         return {
             'name': name,
             'type': 'line',
