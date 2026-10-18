@@ -17,15 +17,17 @@ from homebuddy.ui.theme import CHART_COLORS
 
 
 def show_card(
-    result: SearchResult, settings: Settings, day: date, dark: bool, narrow: bool = False
+    result: SearchResult, settings: Settings, day: date, dark: bool, narrow: bool = False, tab_row: bool = False
 ) -> tuple[ui.echart, ui.element]:
     """Render the chart and the empty details of a sensor into the current container.
 
-    ``narrow`` gives the chart its layout for a narrow screen.
+    ``narrow`` gives the chart its layout for a narrow screen. ``tab_row`` is True when the header shows the
+    tabs. The selected tab then has the name of the tab, so the card does not show it again.
     """
     with ui.card().classes('hb-card w-full gap-0'):
         with ui.row().classes('w-full items-baseline gap-3'):
-            ui.label(tab_name(result)).classes('font-semibold')
+            if not tab_row:
+                ui.label(tab_name(result)).classes('font-semibold')
             ui.label(f'{day:%A}, {day.day} {day:%B %Y}').classes('hb-muted text-sm')
             ui.space()
             full_day_button = ui.button('Full day', color=None).props('flat dense no-caps').classes('hb-pill')
@@ -70,8 +72,9 @@ def show_details(result: SearchResult, settings: Settings, chart: ui.echart, deb
             # One filter for each detector with events, when there is a choice: its color, its name and its count.
             # A hidden detector always has its filter, so the user can show its rows.
             counts = {name: len(found) for name, found in result.accepted.items() if found}
-            last_color = len(CHART_COLORS[False]['detectors']) - 1
-            positions = {name: min(i, last_color) for i, name in enumerate(result.detectors)}
+            # The position of the color of the detector. See ``detector_colors``.
+            colors = len(CHART_COLORS[False]['detectors'])
+            positions = {name: i % colors for i, name in enumerate(result.detectors)}
             for name, count in counts.items() if len(counts) > 1 or hidden & counts.keys() else ():
                 with filters, ui.element('div').classes('hb-filter').mark(f'filter-{name}') as pill:
                     ui.element('div').classes('hb-filter-dot').style(

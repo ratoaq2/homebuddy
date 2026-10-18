@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 from homebuddy.config import Settings, TabSensor
 from homebuddy.model import Event, Point
 from homebuddy.result import Row, SearchResult
-from homebuddy.ui.events import column_titles, event_texts
+from homebuddy.ui.events import column_titles, event_texts, shown_format
 from homebuddy.ui.names import detector_name, tab_name
 from homebuddy.ui.theme import CHART_COLORS, FONT
 
@@ -34,10 +34,12 @@ NARROW_RIGHT = 20
 
 
 def detector_colors(result: SearchResult, dark: bool = False) -> dict[str, str]:
-    """The color of each detector, from its position in the file. It is the same one in each chart."""
-    detectors = result.detectors
+    """The color of each detector, from its position in the file. It is the same one in each chart.
+
+    After the last color of the palette, the colors start again. The name of a lane tells the detectors apart.
+    """
     palette = CHART_COLORS[dark]['detectors']
-    return dict(zip(detectors, palette + palette[-1:] * len(detectors), strict=False))
+    return {name: palette[i % len(palette)] for i, name in enumerate(result.detectors)}
 
 
 def lane_events(result: SearchResult) -> dict[str, list[Event]]:
@@ -54,7 +56,7 @@ def event_tooltips(result: SearchResult, date_format: str) -> dict[tuple[str, da
     titles = column_titles(result)
     tooltips = {}
     for event in result.events:
-        texts = event_texts(result, event, date_format)
+        texts = event_texts(result, event, shown_format(result, event, date_format))
         lines = [f'{escape(titles[name])}: {escape(text)}' for name, text in texts.items() if text]
         tooltips[event.detector, event.start] = '<br>'.join(
             [f'<b>{escape(detector_name(result, event.detector))}</b>', *lines]
@@ -108,9 +110,9 @@ def chart_options(
     """ECharts options: the line of the sensor for the day with its levels, and one lane for each detector with events.
 
     A lane has the events of a detector: a bar from the start to the end of each event. The lanes have the
-    time axis and the zoom of the line. At the left of a lane is the color and the name of the detector. At
-    the right is the number of its events, and their energy for a power sensor. A bar shows the values of its
-    event in a tooltip, with the label of the event.
+    time axis and the zoom of the line. At the left of a lane is the color and the name of the
+    detector. At the right is the number of its events, and their energy for a power sensor. A bar shows the
+    values of its event in a tooltip, with the label of the event.
     Each other sensor of the tab is one more line, with the same axis. The chart then has a legend.
     ``entries`` has the keys of each line of the tab, in the order of its sensors. A line with ``smooth`` shows
     the average of its sensor in each window. A line with ``name`` has this name in the legend. Without an
@@ -190,7 +192,6 @@ def chart_options(
             more, palette + palette[-1:] * len(more), windows[1:], names[1:], strict=False
         )
     ]
-    color_of = detector_colors(result, dark)
     events = lane_events(result)
     left, right = (NARROW_LEFT, NARROW_RIGHT) if narrow else (LEFT, RIGHT)
     # On a narrow screen, each lane has an empty row above its bars for its texts.
@@ -213,6 +214,7 @@ def chart_options(
     # first in the row of the texts.
     names = [detector_name(result, name) for name in events]
     labels = [f'{{c{i}|●}} {name}' if narrow else f'{name} {{c{i}|●}}' for i, name in enumerate(names)]
+    color_of = detector_colors(result, dark)
     tooltips = event_tooltips(result, date_format)
     lane_axis = {
         'type': 'category',

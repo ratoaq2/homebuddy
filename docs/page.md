@@ -47,8 +47,8 @@ The page shows one tab of the configuration file at a time. When the file has tw
 the day, the header has a row of tabs. Click a tab to see it. The selected tab stays when you
 change the day.
 
-A tab and the title of its chart show the `name` of the tab, or the name of its sensor from Home Assistant, or
-the entity id when it has no name.
+A tab shows the `name` of the tab, or the name of its sensor from Home Assistant, or the entity id when it has
+no name. A page with only one tab has no row of tabs. Then the title of the chart shows this name.
 
 A tab whose sensor has no numbers in the day does not show.
 
@@ -70,7 +70,8 @@ Below the chart is one lane for each detector of the tab that has events in the 
   its event and its label. The label of a run of a `state` detector is its first state.
 - The lanes have the time axis and the zoom of the chart.
 - At the left of a lane is the name of the detector and its color. A detector has the same color in each
-  chart. The color comes from the position of the detector in the file.
+  chart. The color comes from the position of the detector in the file. The page has 6 colors. The 7th
+  detector has the color of the first one again, and so on. The name of a lane tells them apart.
 - At the right is the number of its events, and their energy in a power tab.
 - On a narrow screen, for example a phone, the chart has the full width of the screen. The name and the
   numbers of a detector are then in its lane, above its bars.
@@ -78,9 +79,11 @@ Below the chart is one lane for each detector of the tab that has events in the 
 ## The events table
 
 The table has the events of each detector of the tab: detector, start, end, duration, label, and the value
-columns of the sensor. The latest event is the first row. The number of a row is the position of its event in
-the day.
+columns of the sensor. The latest event is the first row.
 
+- The start and the end show only the time, for example `14:53:20`. An event that crosses midnight shows
+  `date_format` of the configuration file.
+- A value that the event does not have shows `–`.
 - Click a row to zoom the chart to that event. The page also moves the chart into the window.
 - The sensor gives the value columns, the same ones for each detector. A power tab has the power and the
   energy of the event. A different tab has the value of the sensor at the start of the event and its largest

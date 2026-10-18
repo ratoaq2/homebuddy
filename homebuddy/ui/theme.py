@@ -16,8 +16,10 @@ NARROW = '(max-width: 599px)'
 CHART_COLORS: dict[bool, dict[str, Any]] = {
     False: {
         'series': PRIMARY,
-        # The first detector has the color of the line.
-        'detectors': (PRIMARY, '#eb6834', '#1baf7a', '#eda100'),
+        # The detectors, in the order of the file: blue, clay, teal, sand, mauve and sage. The colors have low
+        # saturation, so the bars do not hide the line. Neighbors have a different lightness. No red: red is for
+        # a problem.
+        'detectors': ('#2c6fae', '#d07758', '#008175', '#b8892d', '#8a5296', '#69a45c'),
         # The lines of a chart after the first one, in the order of the tab: the colors of Home Assistant
         # for solar, then for a battery.
         'lines': ('#eda100', '#1baf7a', '#eb6834'),
@@ -30,7 +32,7 @@ CHART_COLORS: dict[bool, dict[str, Any]] = {
     },
     True: {
         'series': PRIMARY,
-        'detectors': (PRIMARY, '#d95926', '#199e70', '#c98500'),
+        'detectors': ('#4b8dcf', '#ee9373', '#00a093', '#d6a54d', '#a970b6', '#84c177'),
         'lines': ('#c98500', '#199e70', '#d95926'),
         # The neutral grays of the dark theme of Home Assistant
         'surface': '#1c1c1c',

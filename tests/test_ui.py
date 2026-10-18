@@ -30,6 +30,7 @@ from homebuddy.ui.app import today  # noqa: E402
 from homebuddy.ui.chart import (  # noqa: E402
     chart_height,
     chart_options,
+    detector_colors,
     event_tooltips,
     event_zoom,
     smoothed,
@@ -38,6 +39,7 @@ from homebuddy.ui.chart import (  # noqa: E402
 from homebuddy.ui.debug import table_lines  # noqa: E402
 from homebuddy.ui.events import copy_columns, duration_text, event_columns, event_rows  # noqa: E402
 from homebuddy.ui.names import tab_name  # noqa: E402
+from homebuddy.ui.theme import CHART_COLORS  # noqa: E402
 from tests.conftest import (  # noqa: E402
     BASELINE_W,
     DURATION,
@@ -110,9 +112,9 @@ def test_chart_options(charge_w: float) -> None:
     assert series['name'] == 'sensor.p'
     assert series['data'][1] == ['2026-09-13 13:00:00', 0.5]
     assert [line['name'] for line in series['markLine']['data']] == ['Baseline 500 W']
-    # One lane for each detector of the sensor. The first detector has the color of the line.
+    # One lane for each detector of the sensor. The first detector has the first color.
     assert options['yAxis'][1]['data'] == ['ev']
-    assert lane(options, 'ev') == ('#03a9f4', [('2026-09-13 13:50:00', '2026-09-13 14:50:00')])
+    assert lane(options, 'ev') == ('#2c6fae', [('2026-09-13 13:50:00', '2026-09-13 14:50:00')])
     assert chart_height(result) == 384 + 22
 
 
@@ -202,6 +204,17 @@ def test_chart_options_theme(charge_w: float) -> None:
     assert (light['tooltip']['backgroundColor'], dark['tooltip']['backgroundColor']) == ('#fcfcfb', '#1c1c1c')
 
 
+@pytest.mark.parametrize('dark', [False, True])
+def test_detector_colors(charge_w: float, dark: bool) -> None:
+    # Each detector has its own color until the end of the palette. Then the colors start again.
+    palette = CHART_COLORS[dark]['detectors']
+    names = [f'detector_{i}' for i in range(len(palette) + 2)]
+    result = replace(make_result(charge_w), detectors=dict.fromkeys(names, SETTINGS.detectors['ev']))
+    colors = list(detector_colors(result, dark).values())
+    assert len(set(colors[: len(palette)])) == len(palette)
+    assert colors[len(palette) :] == list(palette[:2])
+
+
 def make_pump_result(charge_w: float) -> SearchResult:
     """The result of ``make_result`` with a pump run of one minute at 13:08."""
     result = make_result(charge_w)
@@ -220,7 +233,7 @@ def test_chart_options_has_a_lane_for_each_detector(charge_w: float) -> None:
     assert options['yAxis'][1]['data'] == ['ev', 'well_pump']
     # At the right of each lane: the number of events and their energy
     assert options['yAxis'][2]['data'] == ['1 event  11.04 kWh', '1 event  0.02 kWh']
-    assert lane(options, 'well_pump') == ('#eb6834', [('2026-09-13 13:08:00', '2026-09-13 13:09:00')])
+    assert lane(options, 'well_pump') == ('#d07758', [('2026-09-13 13:08:00', '2026-09-13 13:09:00')])
     # The line of the sensor has no mark of an event.
     assert [line['name'] for line in options['series'][0]['markLine']['data']] == ['Baseline 500 W']
 
@@ -250,8 +263,8 @@ def test_chart_options_has_no_lane_for_a_detector_without_events(charge_w: float
     assert (options['yAxis'][1]['data'], options['yAxis'][2]['data']) == (['well_pump'], ['1 event  0.02 kWh'])
     assert [series['name'] for series in options['series'][1:]] == ['well_pump']
     # The pump keeps the color of the second detector.
-    assert lane(options, 'well_pump')[0] == '#eb6834'
-    assert options['yAxis'][1]['axisLabel']['rich'] == {'c0': {'color': '#eb6834', 'fontSize': 14}}
+    assert lane(options, 'well_pump')[0] == '#d07758'
+    assert options['yAxis'][1]['axisLabel']['rich'] == {'c0': {'color': '#d07758', 'fontSize': 14}}
     assert (options['grid'][1]['height'], chart_height(result)) == (22, 384 + 22)
 
     # A day without events has no lanes.
@@ -265,32 +278,32 @@ def test_event_rows_have_the_columns_of_the_sensor(charge_w: float) -> None:
     result = make_pump_result(charge_w)
     # The latest event is the first row. The id of a row is the position of its event in the order of time.
     assert result.events[event_rows(result, DATE_FORMAT)[0]['id'] - 1].detector == 'ev'
+    # The table shows only the time of an event in the day, and '–' without a value. The copy button copies
+    # the date format, and an empty text without a value.
+    ev = {'detector': 'ev', 'duration': '1 h 00 min', 'power': '11.04', 'energy': '11.04'}
+    pump = {'detector': 'well_pump', 'duration': '60 s', 'power': '1.00', 'energy': '0.02'}
     assert event_rows(result, DATE_FORMAT) == [
         {
             'id': 2,
             'key': 'ev',
-            'detector': 'ev',
-            'start': '2026-09-13 13:50:00',
-            'end': '2026-09-13 14:50:00',
-            'duration': '1 h 00 min',
-            'label': '',
-            'power': '11.04',
-            'energy': '11.04',
+            **ev,
+            'start': '13:50:00',
+            'end': '14:50:00',
+            'label': '–',
+            'copy': ev | {'start': '2026-09-13 13:50:00', 'end': '2026-09-13 14:50:00', 'label': ''},
         },
         {
             'id': 1,
             'key': 'well_pump',
-            'detector': 'well_pump',
-            'start': '2026-09-13 13:08:00',
-            'end': '2026-09-13 13:09:00',
-            'duration': '60 s',
-            'label': '',
-            'power': '1.00',
-            'energy': '0.02',
+            **pump,
+            'start': '13:08:00',
+            'end': '13:09:00',
+            'label': '–',
+            'copy': pump | {'start': '2026-09-13 13:08:00', 'end': '2026-09-13 13:09:00', 'label': ''},
         },
     ]
+    # The number of a row is not a column.
     assert [column['label'] for column in event_columns(result)] == [
-        '#',
         'Detector',
         'Start',
         'End',
@@ -359,11 +372,24 @@ def test_name_of_a_tab() -> None:
 
 def test_event_rows_date_format(charge_w: float) -> None:
     [row] = event_rows(make_result(charge_w), '%Y-%m-%d %H:%M')
-    assert (row['start'], row['end']) == ('2026-09-13 13:50', '2026-09-13 14:50')
+    assert (row['start'], row['end']) == ('13:50:00', '14:50:00')
+    assert (row['copy']['start'], row['copy']['end']) == ('2026-09-13 13:50', '2026-09-13 14:50')
+    # An event that crosses midnight shows the date format: a charge from 22:05 of the day before to 02:05.
+    points = make_points(datetime(2026, 9, 12, 22, 0, tzinfo=TZ), [(10, BASELINE_W), (480, charge_w), (10, 0)])
+    result = replace(make_result(charge_w), points=points, found={'ev': detect_runs(points, BASELINE_W, EV)})
+    [row] = event_rows(result, '%Y-%m-%d %H:%M')
+    assert (row['start'], row['end']) == ('2026-09-12 22:05', '2026-09-13 02:05')
 
 
 def test_duration_text() -> None:
-    assert [duration_text(s) for s in (48, 599, 600, 16560)] == ['48 s', '599 s', '0 h 10 min', '4 h 36 min']
+    assert [duration_text(s) for s in (48, 599, 600, 2340, 3570, 16560)] == [
+        '48 s',
+        '599 s',
+        '10 min',
+        '39 min',
+        '1 h 00 min',
+        '4 h 36 min',
+    ]
 
 
 def test_event_zoom(charge_w: float) -> None:
@@ -408,7 +434,7 @@ def test_chart_options_of_a_sensor_that_is_not_power() -> None:
     assert (value_axis['name'], value_axis['scale'], series['name']) == ('°C', True, 'Discharge')
     assert series['data'][3] == ['2026-09-13 13:02:00', 40.0]
     assert series['markLine']['data'] == []
-    assert lane(options, 'air_conditioner') == ('#eb6834', [('2026-09-13 13:01:00', '2026-09-13 13:06:00')])
+    assert lane(options, 'air_conditioner') == ('#d07758', [('2026-09-13 13:01:00', '2026-09-13 13:06:00')])
     # A sensor that is not a power sensor has no energy.
     assert options['yAxis'][2]['data'] == ['1 event']
 
@@ -425,14 +451,14 @@ def test_event_tooltips(charge_w: float) -> None:
     session, run = result.found['ev'][0], result.found['well_pump'][0]
     # The friendly name of the detector, then the values of the row of the event. An empty value has no line.
     assert event_tooltips(result, DATE_FORMAT) == {
-        ('ev', session.start): '<b>ev</b><br>Start: 2026-09-13 13:50:00<br>End: 2026-09-13 14:50:00'
+        ('ev', session.start): '<b>ev</b><br>Start: 13:50:00<br>End: 14:50:00'
         '<br>Duration: 1 h 00 min<br>Power (kW): 11.04<br>Energy (kWh): 11.04',
-        ('well_pump', run.start): '<b>Well pump</b><br>Start: 2026-09-13 13:08:00<br>End: 2026-09-13 13:09:00'
+        ('well_pump', run.start): '<b>Well pump</b><br>Start: 13:08:00<br>End: 13:09:00'
         '<br>Duration: 60 s<br>Power (kW): 1.00<br>Energy (kWh): 0.02',
     }
     # The bar of an event has the tooltip of the event.
     [series] = [s for s in chart_options(result, DATE_FORMAT)['series'][1:] if s['name'] == 'well_pump']
-    assert series['data'][0]['name'].startswith('<b>Well pump</b><br>Start: 2026-09-13 13:08:00')
+    assert series['data'][0]['name'].startswith('<b>Well pump</b><br>Start: 13:08:00')
     assert 'silent' not in series and 'silent' not in series['markLine']
 
     # The text is safe HTML.
@@ -638,7 +664,7 @@ async def test_page_has_a_tab_for_each_result(
         ]
         [chart] = user.find(ui.echart).elements
         [table] = user.find(ui.table).elements
-        assert (chart.options['series'][0]['name'], [row['label'] for row in table.rows]) == ('sensor.p', [''])
+        assert (chart.options['series'][0]['name'], [row['label'] for row in table.rows]) == ('sensor.p', ['–'])
 
         # A click on a tab shows its sensor, without a request to Home Assistant.
         user.find(kind=ui.tab, content='Discharge').click()
@@ -646,6 +672,8 @@ async def test_page_has_a_tab_for_each_result(
         [table] = user.find(ui.table).elements
         assert (chart.options['series'][0]['name'], [row['peak'] for row in table.rows]) == ('Discharge', ['56.0'])
         assert len(calls) == 1
+        # The selected tab has the name of the tab, so the card does not show it again.
+        await user.should_not_see(kind=ui.label, content='Discharge')
 
         # A second load keeps the chart of the selected sensor, and the theme changes it.
         user.find(marker='reload').click()
@@ -669,6 +697,8 @@ async def test_page_with_one_sensor_has_no_tabs(found: list[tuple[Any, ...]]) ->
         await user.should_see('Click a row to zoom the chart')
         await user.should_not_see(kind=ui.tabs)
         assert len(user.find(ui.echart).elements) == 1
+        # Without the tabs, the card shows the name of the tab.
+        await user.should_see(kind=ui.label, content='sensor.p')
 
 
 @pytest.mark.parametrize(
@@ -984,8 +1014,7 @@ def make_above_result() -> SearchResult:
 def test_chart_options_of_a_new_detector_type() -> None:
     options = chart_options(make_above_result(), DATE_FORMAT)
     assert [(line['name'], line['yAxis']) for line in options['series'][0]['markLine']['data']] == [('Limit 50 °C', 50)]
-    # The second detector of the settings has the second color.
-    assert lane(options, 'hot') == ('#eb6834', [('2026-09-13 13:05:00', '2026-09-13 13:05:00')])
+    assert lane(options, 'hot') == ('#d07758', [('2026-09-13 13:05:00', '2026-09-13 13:05:00')])
 
 
 async def test_page_shows_a_new_detector_type(found: list[tuple[Any, ...]], monkeypatch: pytest.MonkeyPatch) -> None:

@@ -97,7 +97,7 @@ detectors:
 | `tabs` | Necessary. One tab or more. See [Tabs](#tabs). |
 | `detectors` | Necessary. One detector or more. See [Detectors](#detectors). |
 | `timezone` | Optional. The time zone of your home, for example `Europe/Berlin`. Without it, homebuddy uses the time zone of Home Assistant. |
-| `date_format` | Optional. A Python `strftime` format. The default is `'%Y-%m-%d %H:%M:%S'`. |
+| `date_format` | Optional. A Python `strftime` format. The default is `'%Y-%m-%d %H:%M:%S'`. The copy button uses it for the start and the end. The events table and the tooltips use it only for an event that crosses midnight. They show only the time of a different event. |
 | `theme` | Optional. `light`, `dark` or `system`. The default is `system`: the theme of your computer. |
 | `copy_columns` | Optional. The columns that the copy button of a row copies. See [The copy button](page.md#the-copy-button). |
 

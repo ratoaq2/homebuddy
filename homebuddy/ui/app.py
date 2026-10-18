@@ -194,7 +194,8 @@ def root(config_path: str | None = None) -> None:
         else:
             results.clear()
             with results:
-                card = show_card(result, loaded, shown_day, bool(dark.value), narrow)
+                # The header shows the tabs when there are two or more. See ``load``.
+                card = show_card(result, loaded, shown_day, bool(dark.value), narrow, tab_row=len(shown) > 1)
         chart, details = card
         tab = loaded.tabs.get(result.tab)
         details.clear()

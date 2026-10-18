@@ -11,7 +11,7 @@ home_assistant:
 # timezone: Europe/Berlin
 
 # Output
-date_format: '%Y-%m-%d %H:%M:%S'    # Python strftime format
+date_format: '%Y-%m-%d %H:%M:%S'    # Python strftime format of the copy button and of an event across midnight
 theme: system                      # the theme of the page: light, dark or system (the theme of your computer)
 # The copy button of a row in the events table copies these columns, with a tab between them.
 # Without this key, it copies each column. The ids of the columns are detector, start, end, duration,
