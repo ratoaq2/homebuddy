@@ -12,10 +12,10 @@ from datetime import datetime, timedelta
 from statistics import median
 from typing import Annotated
 
-from pydantic import AfterValidator, Field
+from pydantic import AfterValidator, Field, ValidationInfo, field_validator
 
 from homebuddy.detector import Detector
-from homebuddy.fields import Duration, Positive, Sensor
+from homebuddy.fields import Duration, Positive, Sensor, Text
 from homebuddy.model import Event, History, Point, Table
 
 BASELINE_PERCENTILE = 0.1
@@ -52,6 +52,14 @@ class Level(Detector):
     levels_w: Annotated[tuple[Positive, ...], Field(min_length=1)]  # Each power that the device can use
     tolerance: Annotated[Positive, AfterValidator(_below_one)] = 0.1
     min_duration: Duration = timedelta(minutes=10)  # The detector ignores a shorter run
+    labels: dict[Positive, Text] = {}  # The label of a run at a level, by the level. Other runs have no label.
+
+    @field_validator('labels')
+    @classmethod
+    def _labels_of_levels(cls, labels: dict[float, str], info: ValidationInfo) -> dict[float, str]:
+        if any(level not in info.data.get('levels_w', ()) for level in labels):
+            raise ValueError('each key must be a value of levels_w')
+        return labels
 
     def levels(self, data: History, start: datetime, end: datetime) -> dict[str, float]:
         # The baseline is the baseline of the search, without the margin of the points.
@@ -107,7 +115,15 @@ def _close_run(start: datetime, end: datetime, powers: list[float], baseline: fl
     duration_h = (end - start).total_seconds() / 3600.0
     level = _nearest_level(powers, baseline, rules)
     # The energy uses the level of the rules, not the measured power
-    return Run(start, end, avg_power, level, power_w=level, energy_kwh=level / 1000.0 * duration_h)
+    return Run(
+        start,
+        end,
+        avg_power,
+        level,
+        label=rules.labels.get(level, ''),
+        power_w=level,
+        energy_kwh=level / 1000.0 * duration_h,
+    )
 
 
 def _split_run(

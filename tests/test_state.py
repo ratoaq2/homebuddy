@@ -96,6 +96,13 @@ def test_an_energy_sensor_with_a_wrong_unit(unit: str) -> None:
         found(readings((9, 0, 'wash'), (10, 0, 'off')), readings((9, 50, '700')), unit)
 
 
+def test_the_labels_change_the_label_of_a_run() -> None:
+    machine = State(sensor='sensor.program', idle_states=IDLE, labels={'wash': 'Washing'})
+    data = History({'sensor.program': readings((9, 0, 'wash'), (10, 0, 'off'), (11, 0, 'dry'), (12, 0, 'off'))})
+    # A state without a label shows its name.
+    assert [e.label for e in machine.detect(data, at(0, 0), at(23, 0))] == ['Washing', 'dry']
+
+
 def test_a_run_without_an_energy_sensor_has_no_energy() -> None:
     assert MACHINE.sensors == ('sensor.program', 'sensor.energy')
     machine = State(sensor='sensor.program', idle_states=IDLE)
@@ -152,3 +159,9 @@ def test_settings(tmp_path: Path) -> None:
     )
     with pytest.raises(ConfigError, match='detectors.machine.idle_states.0: Input should be a valid string'):
         load_settings()
+
+    file.write_text(
+        f'home_assistant:\n  url: http://ha\ntimezone: UTC\n{TABS_YAML}'
+        f'detectors: {{machine: {{{rules}, {keys}, labels: {{wash: Washing}}}}}}'
+    )
+    assert load_settings().detectors['machine'] == MACHINE.model_copy(update={'labels': {'wash': 'Washing'}})

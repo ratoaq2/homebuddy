@@ -61,6 +61,7 @@ detectors:
     levels_w: [4140, 6900, 11040]   # each power that the device can use, in watts
     tolerance: 0.1                  # optional
     min_duration: {minutes: 10}     # optional: homebuddy ignores a shorter run
+    labels: {6900: 10 A}            # optional: the label of a run at a level
   well_pump:
     type: pulse
     name: Well pump                 # optional: the page shows this name
@@ -83,6 +84,7 @@ detectors:
     sensor: sensor.washing_machine_state
     idle_states: [idle]             # the states of the sensor when the device does not run
     energy_sensor: sensor.washing_machine_energy    # optional: the energy of a run, in kWh or Wh
+    labels: {wash: Washing}         # optional: the label of a run, by its first state
   heater:
     type: threshold
     sensor: sensor.heater_plug_power    # the power sensor of the device, in W or kW
@@ -255,7 +257,7 @@ A range is a list of two values, the low one first: `step_w: [900, 1100]`.
 
 ### Texts that YAML changes
 
-Put a state such as `off`, `on`, `yes` or `no` in quotes: `idle_states: ['off']`. Without the quotes, YAML reads
+Put a state such as `off`, `on`, `yes` or `no` in quotes: `idle_states: ['off']`, `labels: {'on': Running}`. Without the quotes, YAML reads
 it as true or false.
 
 ## Errors

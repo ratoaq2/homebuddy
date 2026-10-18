@@ -57,6 +57,7 @@ detectors:
     levels_w: [4140, 6900, 11040]   # each power that the device can use, in watts
     tolerance: 0.1                  # 0.1 accepts a run 10 % below the lowest level
     min_duration: {minutes: 10}     # homebuddy ignores a shorter run
+    labels: {}                      # the label of a run at a level, for example {6900: 10 A}
 
   # A load that runs for some seconds: a short step up and a step down of the power.
   # The example is a well pump. A pulse detector has no defaults.
@@ -91,6 +92,7 @@ detectors:
   #   sensor: sensor.washing_machine_state    # the sensor that shows the state of the device
   #   idle_states: [idle]           # the states when the device does not run. Use quotes for 'off' and 'on'.
   #   energy_sensor: sensor.washing_machine_energy    # optional: the energy of a run, in kWh or Wh
+  #   labels: {wash: Washing}       # optional: the label of a run, by its first state
 
   # A device that has its own power sensor, for example a heater on a smart plug.
   # The device runs when the power of `sensor` is above `min_w`. A threshold detector has no defaults.

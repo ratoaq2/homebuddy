@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from typing import ClassVar
 
 from homebuddy.detector import Detector
-from homebuddy.fields import Entities, Sensor
+from homebuddy.fields import Entities, Sensor, Text
 from homebuddy.model import Event, History, Reading, SensorError
 
 # The states of Home Assistant for a sensor without a value. They do not change the state of the device.
@@ -29,6 +29,7 @@ class State(Detector):
     sensor: Sensor  # The sensor that shows the state of the device as a text
     idle_states: Entities  # The states of the sensor when the device does not run
     energy_sensor: Sensor | None = None  # The sensor with the energy of a run, in kWh or Wh
+    labels: dict[Text, Text] = {}  # The label of a run, by its first state. Other runs show their first state.
 
     estimate_power: ClassVar[bool] = False
 
@@ -40,7 +41,11 @@ class State(Detector):
                 raise SensorError(f'energy_sensor: the unit of {self.energy_sensor} is `{unit}`. It must be kWh or Wh.')
             energy = [(t, value / ENERGY_UNITS[unit]) for t, value in data.numbers(self.energy_sensor)]
         return [
-            replace(run, energy_kwh=run_energy([v for t, v in energy if run.start <= t <= run.end + AFTER_RUN]))
+            replace(
+                run,
+                label=self.labels.get(run.label, run.label),
+                energy_kwh=run_energy([v for t, v in energy if run.start <= t <= run.end + AFTER_RUN]),
+            )
             for run in runs(data.readings(self.sensor), self.idle_states, end)
         ]
 

@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import pytest
 
-from homebuddy.detectors.level import compute_baseline, detect_runs, threshold_w
-from tests.conftest import BASELINE_W, EV, LEVELS, TZ, make_points, make_two_car_day
+from homebuddy.config import ConfigError, load_settings
+from homebuddy.detectors.level import Level, compute_baseline, detect_runs, threshold_w
+from tests.conftest import BASELINE_W, EV, LEVELS, TABS_YAML, TZ, make_points, make_two_car_day
 
 
 def test_detect_no_points() -> None:
@@ -195,3 +197,27 @@ def test_detect_refuses_a_load_that_is_not_sustained(day_start: datetime) -> Non
     charge = BASELINE_W + LEVELS[6]
     points = make_points(day_start, [(10, BASELINE_W), *[(4, charge), (1, BASELINE_W)] * 8, (10, BASELINE_W)])
     assert detect_runs(points, BASELINE_W, EV) == []
+
+
+def test_detect_label_of_a_level(day_start: datetime) -> None:
+    ev = Level(levels_w=EV.levels_w, sensor='sensor.p', labels={LEVELS[10]: '10 A'})
+    points = make_points(day_start, [(10, BASELINE_W), (60, BASELINE_W + LEVELS[10]), (10, BASELINE_W)])
+    points += make_points(points[-1][0], [(60, BASELINE_W + LEVELS[16]), (10, BASELINE_W)])
+    # A level without a label gives a run without a label.
+    assert [(r.level_w, r.label) for r in detect_runs(points, BASELINE_W, ev)] == [
+        (LEVELS[10], '10 A'),
+        (LEVELS[16], ''),
+    ]
+
+
+def test_settings_labels(tmp_path: Path) -> None:
+    file = tmp_path / 'homebuddy.yml'
+    head = f'home_assistant:\n  url: http://ha\ntimezone: UTC\n{TABS_YAML}'
+    head += 'detectors: {car: {type: level, sensor: sensor.p'
+    file.write_text(f'{head}, levels_w: [6900], labels: {{6900: 10 A}}}}}}')
+    assert load_settings().detectors['car'] == Level(levels_w=(6900,), sensor='sensor.p', labels={6900: '10 A'})
+
+    # A label of a level that is not in ``levels_w`` is an error.
+    file.write_text(f'{head}, levels_w: [6900], labels: {{7000: 10 A}}}}}}')
+    with pytest.raises(ConfigError, match='detectors.car.labels: each key must be a value of levels_w'):
+        load_settings()

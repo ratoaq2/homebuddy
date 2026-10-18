@@ -39,6 +39,7 @@ detectors:
 | `levels_w` | Necessary. Each power that the device can use, in watts. One value or more. |
 | `tolerance` | Optional. 0.1 accepts a run 10 % below the lowest level. The default is 0.1. |
 | `min_duration` | Optional. homebuddy ignores a shorter run. The default is 10 minutes. |
+| `labels` | Optional. The label of a run at a level, by the level: `labels: {6900: 10 A}`. Each key must be a value of `levels_w`. A run at a level without a label has no label. |
 
 Use this type for a device that has no sensor of its own and that uses a constant power for a long time.
 
@@ -180,6 +181,7 @@ detectors:
 | `sensor` | Necessary. The sensor that shows the state of the device as a text, for example the name of its program. |
 | `idle_states` | Necessary. The states of the sensor when the device does not run. |
 | `energy_sensor` | Optional. The sensor with the energy of a run, in kWh or Wh. |
+| `labels` | Optional. The label of a run, by its first state: `labels: {wash: Washing}`. A state without a label shows its name. |
 
 How it works:
 
@@ -188,7 +190,7 @@ How it works:
    `idle_states` continues the run.
 3. The states `unavailable` and `unknown` of Home Assistant do not change the state of the device.
 4. A run that has no end yet stops at the present time.
-5. The label of the run is its first state.
+5. The label of the run is its first state, or the label of that state in `labels`.
 6. With `energy_sensor`, the energy of the run is the last value of that sensor in the run that is not 0.
    homebuddy also reads the first minute after the run, because some devices write the energy at the end. Some
    devices set the sensor to 0 at the end.
