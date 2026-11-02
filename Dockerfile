@@ -1,6 +1,6 @@
-FROM ghcr.io/astral-sh/uv:0.13.0 AS uv
+FROM ghcr.io/astral-sh/uv:0.13.6 AS uv
 
-FROM python:3.14-slim AS build
+FROM python:3.15-slim AS build
 
 COPY --from=uv /uv /bin/uv
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
@@ -14,7 +14,7 @@ COPY homebuddy ./homebuddy
 RUN uv sync --locked --no-dev --no-editable
 
 
-FROM python:3.14-slim
+FROM python:3.15-slim
 
 COPY --from=build /app/.venv /app/.venv
 ENV PATH=/app/.venv/bin:$PATH
