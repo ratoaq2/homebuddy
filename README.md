@@ -87,7 +87,7 @@ Use one of these commands:
 | --- | --- |
 | `uv tool install homebuddy` | Recommended. [uv](https://docs.astral.sh/uv/getting-started/installation/) also installs Python if necessary. |
 | `pipx install homebuddy` | You already use [pipx](https://pipx.pypa.io/). |
-| `pip install homebuddy` | You want homebuddy in your own environment. Python 3.10 or later. |
+| `pip install homebuddy` | You want homebuddy in your own environment. Python 3.11 or later. |
 
 `homebuddy[desktop]` also installs the desktop window: `uv tool install "homebuddy[desktop]"`, then
 `homebuddy --native`.
