@@ -343,6 +343,10 @@ def test_solve_conflicts() -> None:
     # The air conditioner overrides the EV detector, and the two events are the same event.
     assert lost({'ev': [session], 'air_conditioner': [run]}) == [('ev', at(2, 0), 'air_conditioner')]
     assert lost({'air_conditioner': [run], 'ev': [session]}) == [('ev', at(2, 0), 'air_conditioner')]
+    # A short charge at the end of a long air conditioner run is the same event.
+    assert lost({'ev': [Event(at(2, 10), at(2, 29))], 'air_conditioner': [Event(at(1, 30), at(2, 28))]}) == [
+        ('ev', at(2, 10), 'air_conditioner')
+    ]
     # A long charge with an air conditioner run in it is not the same event.
     assert lost({'ev': [long_session], 'air_conditioner': [run]}) == []
     # A detector that overrides nothing removes nothing. The two events stay.

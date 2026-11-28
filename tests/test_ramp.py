@@ -53,6 +53,12 @@ def test_a_dip_continues_the_run() -> None:
     assert minutes(runs(make_ramp(WITH_A_DIP), RULES)) == [(1, 12)]
 
 
+def test_a_run_with_a_dip_ends_at_the_peak_after_the_dip() -> None:
+    # The peak after the dip, at minute 11, is lower than the peak before it. The device stops at minute 12.
+    lower_after = [*WITH_A_DIP[:10], 52, 54, 53, 46, 40, 38, *WITH_A_DIP[16:]]
+    assert minutes(runs(make_ramp(lower_after), RULES)) == [(1, 11)]
+
+
 def test_a_short_pause_splits_the_run_with_a_dip() -> None:
     found = runs(make_ramp(WITH_A_DIP), RULES.model_copy(update={'max_pause': timedelta(seconds=30)}))
     assert minutes(found) == [(1, 6), (8, 12)]
