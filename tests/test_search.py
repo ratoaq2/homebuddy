@@ -232,7 +232,8 @@ def test_a_power_sensor_in_kw_gives_the_same_result_as_the_sensor_in_w(
     assert kilowatts.events == watts.events
     # The points and the levels of the result are in watts for the two units.
     assert (kilowatts.unit, kilowatts.power) == (watts.unit, watts.power) == ('W', True)
-    assert kilowatts.points == pytest.approx(watts.points)
+    assert [t for t, _ in kilowatts.points] == [t for t, _ in watts.points]
+    assert [v for _, v in kilowatts.points] == pytest.approx([v for _, v in watts.points])
     assert kilowatts.levels == pytest.approx(watts.levels)
 
 
