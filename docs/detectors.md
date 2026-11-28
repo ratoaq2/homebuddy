@@ -157,7 +157,7 @@ How it works:
 2. A run starts at the value before a rise that is faster than `rise_per_minute`.
 3. A run ends at its largest value, when a fall that is faster than `fall_per_minute` comes after it.
 4. A new fast rise in `max_pause` after a fast fall continues the run. A short stop of the device makes such
-   a dip.
+   a dip. The run then ends at the largest value after the last fast rise.
 5. homebuddy ignores a run that rises less than `min_rise` from its start to its largest value.
 
 A run that has no fast fall yet does not show.
@@ -251,7 +251,8 @@ detectors:
 
 - `overrides` is an optional key of each detector: a list of detector names.
 - An event of the detector removes the same event of each detector in the list.
-- Two events are the same event when their common time is half of their total time, or more.
+- An event is the same event as an event of a detector that overrides it when half of its time, or more, is in
+  the time of that event.
 - A detector without `overrides` removes nothing.
 
 A long run of the car with a run of the air conditioner in it is not the same event, so the two stay. A short

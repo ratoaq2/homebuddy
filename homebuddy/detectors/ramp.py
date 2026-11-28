@@ -29,29 +29,33 @@ class Ramp(Detector):
 def runs(points: list[Point], rules: Ramp) -> list[Event]:
     """Each run that has an end, from the value before the fast rise to the peak before the fast fall.
 
-    A new fast rise soon after a fast fall continues the run.
+    A new fast rise soon after a fast fall continues the run. The run then ends at the peak after the last rise.
     """
-    result: list[tuple[Point, Point]] = []  # The start and the peak of each run
+    result: list[tuple[Point, Point, Point]] = []  # The start, the peak and the end of each run
     start: Point | None = None
-    peak = points[0] if points else None
+    peak = top = points[0] if points else None  # The largest value of the run, and since its last rise
     fall: datetime | None = None  # The time of the last fast fall
     for (t0, v0), (t1, v1) in zip(points, points[1:], strict=False):
         rate = (v1 - v0) / ((t1 - t0).total_seconds() / 60)
         if start is None:
             if rate >= rules.rise_per_minute:
-                start, peak, fall = (t0, v0), (t1, v1), None
+                start, peak, top, fall = (t0, v0), (t1, v1), (t1, v1), None
             continue
-        assert peak is not None
+        assert peak is not None and top is not None
         if fall is not None and t1 - fall > rules.max_pause and rate < rules.rise_per_minute:
-            result.append((start, peak))
+            result.append((start, peak, top))
             start = None
             continue
         if rate <= -rules.fall_per_minute:
             fall = t1
         elif rate >= rules.rise_per_minute:
+            if fall is not None:
+                top = (t1, v1)
             fall = None
         if v1 > peak[1]:
             peak = (t1, v1)
-    if start is not None and peak is not None and fall is not None:
-        result.append((start, peak))
-    return [Event(start[0], peak[0]) for start, peak in result if peak[1] - start[1] >= rules.min_rise]
+        if v1 > top[1]:
+            top = (t1, v1)
+    if start is not None and peak is not None and top is not None and fall is not None:
+        result.append((start, peak, top))
+    return [Event(start[0], top[0]) for start, peak, top in result if peak[1] - start[1] >= rules.min_rise]

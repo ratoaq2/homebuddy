@@ -8,7 +8,7 @@ from typing import NamedTuple
 
 from homebuddy.model import Event
 
-# Two events are the same event when their common time is this part of their total time, or more.
+# An event is the same event as a different one when this part of its time, or more, is in the different one.
 SAME_EVENT = 0.5
 
 
@@ -21,10 +21,10 @@ class Conflict(NamedTuple):
     winner: str
 
 
-def same_event(a: Event, b: Event) -> bool:
-    """True when two events have most of their time in common."""
-    common = (min(a.end, b.end) - max(a.start, b.start)).total_seconds()
-    total = (max(a.end, b.end) - min(a.start, b.start)).total_seconds()
+def same_event(event: Event, other: Event) -> bool:
+    """True when most of the time of ``event`` is in ``other``. A short event in a long one is the same event."""
+    common = (min(event.end, other.end) - max(event.start, other.start)).total_seconds()
+    total = (event.end - event.start).total_seconds()
     return bool(total > 0 and common / total >= SAME_EVENT)
 
 
